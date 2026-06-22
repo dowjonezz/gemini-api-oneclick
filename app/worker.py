@@ -212,17 +212,24 @@ def get_enum_models() -> list[dict[str, Any]]:
 
 
 def _build_model_name(m) -> str:
-    # mapping 表已经把各 tier 的 hash normalize 到 BASIC 名（如 PLUS_FLASH/BASIC_FLASH 都 → gemini-3-flash）
-    # 优先取 model_name；只有当 mapping 漏匹配（enum 未收录的新模型）才退到 description/display 解析
+    # mapping 表已经把各 tier 的 hash normalize 到 BASIC 名（如 PLUS_FLASH/BASIC_FLASH 都 → gemini-3-flash），
+    # 所以 family（flash / flash-thinking / pro）以 model_name 为准——它能可靠区分 thinking，描述里不一定带。
+    # 但版本号要跟着 Google 实时描述走：Google 把同一个 hash 原地升版（3 Flash → 3.5 Flash）时，
+    # 从 description 解析真实版本号，替换掉 enum 里写死的旧版本，新版本才能自动浮现。解析不到就保持原样（零回归）。
     name = getattr(m, "model_name", "") or ""
-    if name and name != "unspecified":
-        return name
     desc = getattr(m, "description", "") or ""
     display = getattr(m, "display_name", "") or ""
     ver_match = re.search(r"(\d+(?:\.\d+)?)\s+(Pro|Flash|Thinking)", desc, re.IGNORECASE)
+    live_ver = ver_match.group(1) if ver_match else None
+    if name and name != "unspecified":
+        if live_ver:
+            # 用实时版本号替换静态名里的版本段：gemini-3-flash + "3.5" → gemini-3.5-flash
+            return re.sub(r"^gemini-\d+(?:\.\d+)?", f"gemini-{live_ver}", name)
+        return name
+    # mapping 漏匹配（enum 未收录的新 hash）才退到 description/display 解析
     if ver_match:
-        ver, family = ver_match.group(1), ver_match.group(2).lower()
-        return f"gemini-{ver}-{family}"
+        family = ver_match.group(2).lower()
+        return f"gemini-{live_ver}-{family}"
     display_lower = display.lower()
     family_map = {
         "fast": "flash", "thinking": "flash-thinking", "pro": "pro",

@@ -668,6 +668,20 @@ class GeminiClient(GemMixin, ResearchMixin):
                 ext_desc = get_nested_value(model_data, [12], "")
                 if isinstance(ext_desc, str) and ext_desc:
                     description = ext_desc
+                # Google 原地升版时（如同一 hash 从 "3 Flash" → "3.5 Flash"），真实版本号可能不在
+                # [2]/[12]，而散落在 model_data 的其它位置。兜底：递归扫描整条 model_data，捞出形如
+                # "3.5 Flash" 的版本串作为 description，让新版本能被下游解析浮现。index 漂移也不怕。
+                _ver_re = r"\d+(?:\.\d+)?\s+(?:Pro|Flash|Thinking)"
+                if not re.search(_ver_re, str(description), re.IGNORECASE):
+                    _stack = list(model_data)
+                    while _stack:
+                        _x = _stack.pop(0)
+                        if isinstance(_x, str):
+                            if re.search(_ver_re, _x, re.IGNORECASE):
+                                description = _x
+                                break
+                        elif isinstance(_x, list):
+                            _stack[:0] = _x
                 if not model_id or not display_name:
                     continue
 

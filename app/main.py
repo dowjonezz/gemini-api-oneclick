@@ -252,16 +252,25 @@ def get_enum_models() -> list[dict[str, Any]]:
 
 
 def _build_model_name(m) -> str:
-    """Build a model name from registry data. Extracts version from description."""
+    """Build a model name from registry data.
+
+    family（flash / flash-thinking / pro）以 model_name 为准（可靠区分 thinking），
+    版本号跟着 Google 实时 description 走：原地升版（3 Flash → 3.5 Flash）时替换写死的旧版本。
+    解析不到版本就保持原样（零回归）。与 worker.py:_build_model_name 保持一致。
+    """
+    name = getattr(m, "model_name", "") or ""
     desc = getattr(m, "description", "") or ""
     display = getattr(m, "display_name", "") or ""
-    # Try to extract version+family from description, e.g. "3.1 Pro" or "3 Flash"
     ver_match = re.search(r"(\d+(?:\.\d+)?)\s+(Pro|Flash|Thinking)", desc, re.IGNORECASE)
+    live_ver = ver_match.group(1) if ver_match else None
+    if name and name != "unspecified":
+        if live_ver:
+            return re.sub(r"^gemini-\d+(?:\.\d+)?", f"gemini-{live_ver}", name)
+        return name
+    # mapping 漏匹配（enum 未收录的新 hash）才退到 description/display 解析
     if ver_match:
-        ver, family = ver_match.group(1), ver_match.group(2).lower()
-        return f"gemini-{ver}-{family}"
-    # Fall back: display_name is "Fast"/"Thinking"/"Pro"
-    # Models without version in desc self-report as generation 3 (e.g. "Gemini 3 Flash")
+        family = ver_match.group(2).lower()
+        return f"gemini-{live_ver}-{family}"
     display_lower = display.lower()
     family_map = {
         "fast": "flash", "thinking": "flash-thinking", "pro": "pro",
@@ -270,9 +279,7 @@ def _build_model_name(m) -> str:
     family = family_map.get(display_lower)
     if not family:
         return getattr(m, "model_id", "") or ""
-    if family:
-        return f"gemini-3-{family}"
-    return getattr(m, "model_id", "") or ""
+    return f"gemini-3-{family}"
 
 
 async def get_runtime_models() -> list[dict[str, Any]]:
