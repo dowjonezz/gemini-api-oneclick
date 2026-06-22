@@ -704,6 +704,16 @@ class GeminiClient(GemMixin, ResearchMixin):
 
             if registry:
                 self._model_registry = registry
+            # [DBG-MODELS] 临时诊断：打印 Google 真实返回的每条模型，定位 thinking 标签去向。验证后移除。
+            for _mid, _am in registry.items():
+                logger.warning(
+                    f"[DBG-MODELS] id={_mid} static_name={_am.model_name!r} "
+                    f"display={_am.display_name!r} desc={_am.description!r} cap={_am.capacity}"
+                )
+            try:
+                logger.warning(f"[DBG-MODELS-RAW] {json.dumps(models_list)[:1200]!r}")
+            except Exception:
+                pass
             return
 
     async def _send_bard_settings(self) -> None:
