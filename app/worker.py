@@ -219,20 +219,25 @@ def _build_model_name(m) -> str:
     name = getattr(m, "model_name", "") or ""
     desc = getattr(m, "description", "") or ""
     display = getattr(m, "display_name", "") or ""
-    ver_match = re.search(r"(\d+(?:\.\d+)?)\s+(Pro|Flash|Thinking)", desc, re.IGNORECASE)
+    # description 现在带规范版本名："3.5 Flash" / "3.1 Flash-Lite" / "3.5 Thinking" / "3.1 Pro"。
+    # Flash-Lite 要排在 Flash 前面，否则 "3.1 Flash-Lite" 会被切成 "3.1 Flash" 丢掉 Lite。
+    ver_match = re.search(r"(\d+(?:\.\d+)?)\s+(Pro|Flash-Lite|Flash|Thinking)", desc, re.IGNORECASE)
     live_ver = ver_match.group(1) if ver_match else None
     if name and name != "unspecified":
+        # family 以静态名为准（可靠区分 flash / flash-thinking / pro），只把版本号换成实时值：
+        # gemini-3-flash + "3.5" → gemini-3.5-flash
         if live_ver:
-            # 用实时版本号替换静态名里的版本段：gemini-3-flash + "3.5" → gemini-3.5-flash
             return re.sub(r"^gemini-\d+(?:\.\d+)?", f"gemini-{live_ver}", name)
         return name
-    # mapping 漏匹配（enum 未收录的新 hash）才退到 description/display 解析
+    # 静态名缺失（enum 未收录的新模型，如 Flash-Lite）→ 从 description 拼出 family
     if ver_match:
-        family = ver_match.group(2).lower()
+        fam = ver_match.group(2).lower()
+        family = {"flash-lite": "flash-lite", "flash": "flash", "pro": "pro",
+                  "thinking": "flash-thinking"}.get(fam, fam)
         return f"gemini-{live_ver}-{family}"
     display_lower = display.lower()
     family_map = {
-        "fast": "flash", "thinking": "flash-thinking", "pro": "pro",
+        "fast": "flash", "thinking": "flash-thinking", "pro": "pro", "flash-lite": "flash-lite",
         "快速": "flash", "快捷": "flash", "思考": "flash-thinking", "思考型": "flash-thinking",
     }
     family = family_map.get(display_lower)
@@ -318,11 +323,13 @@ def resolve_model_for_chat(openai_model_name: str, client: GeminiClient | None =
                     trace = {"requested_model": openai_model_name, "resolution": "registry-exact"}
                     trace.update(describe_model(m))
                     return m, trace
-            req_keywords = {kw for kw in ("flash", "pro", "thinking") if kw in name_lower}
+            # "lite" 参与区分，否则 gemini-3.5-flash 与 gemini-3.1-flash-lite 的 keyword 集合都只有 {flash} 会撞车
+            _kw = ("flash", "pro", "thinking", "lite")
+            req_keywords = {kw for kw in _kw if kw in name_lower}
             if req_keywords:
                 for m in registry.values():
                     model_names = f"{m.display_name} {m.model_name}".lower()
-                    model_keywords = {kw for kw in ("flash", "pro", "thinking") if kw in model_names}
+                    model_keywords = {kw for kw in _kw if kw in model_names}
                     if req_keywords == model_keywords:
                         trace = {"requested_model": openai_model_name, "resolution": "registry-keyword"}
                         trace.update(describe_model(m))

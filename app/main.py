@@ -261,7 +261,8 @@ def _build_model_name(m) -> str:
     name = getattr(m, "model_name", "") or ""
     desc = getattr(m, "description", "") or ""
     display = getattr(m, "display_name", "") or ""
-    ver_match = re.search(r"(\d+(?:\.\d+)?)\s+(Pro|Flash|Thinking)", desc, re.IGNORECASE)
+    # Flash-Lite 排在 Flash 前，否则 "3.1 Flash-Lite" 被切成 "3.1 Flash" 丢掉 Lite。
+    ver_match = re.search(r"(\d+(?:\.\d+)?)\s+(Pro|Flash-Lite|Flash|Thinking)", desc, re.IGNORECASE)
     live_ver = ver_match.group(1) if ver_match else None
     if name and name != "unspecified":
         if live_ver:
@@ -269,11 +270,13 @@ def _build_model_name(m) -> str:
         return name
     # mapping 漏匹配（enum 未收录的新 hash）才退到 description/display 解析
     if ver_match:
-        family = ver_match.group(2).lower()
+        fam = ver_match.group(2).lower()
+        family = {"flash-lite": "flash-lite", "flash": "flash", "pro": "pro",
+                  "thinking": "flash-thinking"}.get(fam, fam)
         return f"gemini-{live_ver}-{family}"
     display_lower = display.lower()
     family_map = {
-        "fast": "flash", "thinking": "flash-thinking", "pro": "pro",
+        "fast": "flash", "thinking": "flash-thinking", "pro": "pro", "flash-lite": "flash-lite",
         "快速": "flash", "快捷": "flash", "思考": "flash-thinking", "思考型": "flash-thinking",
     }
     family = family_map.get(display_lower)

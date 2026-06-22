@@ -668,20 +668,15 @@ class GeminiClient(GemMixin, ResearchMixin):
                 ext_desc = get_nested_value(model_data, [12], "")
                 if isinstance(ext_desc, str) and ext_desc:
                     description = ext_desc
-                # Google 原地升版时（如同一 hash 从 "3 Flash" → "3.5 Flash"），真实版本号可能不在
-                # [2]/[12]，而散落在 model_data 的其它位置。兜底：递归扫描整条 model_data，捞出形如
-                # "3.5 Flash" 的版本串作为 description，让新版本能被下游解析浮现。index 漂移也不怕。
-                _ver_re = r"\d+(?:\.\d+)?\s+(?:Pro|Flash|Thinking)"
-                if not re.search(_ver_re, str(description), re.IGNORECASE):
-                    _stack = list(model_data)
-                    while _stack:
-                        _x = _stack.pop(0)
-                        if isinstance(_x, str):
-                            if re.search(_ver_re, _x, re.IGNORECASE):
-                                description = _x
-                                break
-                        elif isinstance(_x, list):
-                            _stack[:0] = _x
+                # [2]/[12] 往往只是 tagline（"全方位帮助"/"All-around help"）。模型的当前规范版本名
+                # （"3.5 Flash" / "3.1 Flash-Lite" / "3.1 Pro" / "3.5 Thinking"）在 index [11]（[19] 同值）。
+                # 注意 display_name([1]) 是旧的通用名（如 "3 Flash"），会落后于实际版本，所以优先取 [11]。
+                # Google 原地升版（同一 hash，"3 Flash" → "3.5 Flash"）时，靠这个字段才能拿到真实版本。
+                _canon = get_nested_value(model_data, [11], "")
+                if not (isinstance(_canon, str) and re.search(r"\d", _canon)):
+                    _canon = get_nested_value(model_data, [19], "")
+                if isinstance(_canon, str) and re.search(r"\d+(?:\.\d+)?\s+\w", _canon):
+                    description = _canon
                 if not model_id or not display_name:
                     continue
 
@@ -704,16 +699,6 @@ class GeminiClient(GemMixin, ResearchMixin):
 
             if registry:
                 self._model_registry = registry
-            # [DBG-MODELS] 临时诊断：打印 Google 真实返回的每条模型，定位 thinking 标签去向。验证后移除。
-            for _mid, _am in registry.items():
-                logger.warning(
-                    f"[DBG-MODELS] id={_mid} static_name={_am.model_name!r} "
-                    f"display={_am.display_name!r} desc={_am.description!r} cap={_am.capacity}"
-                )
-            try:
-                logger.warning(f"[DBG-MODELS-RAW] {json.dumps(models_list)[:1200]!r}")
-            except Exception:
-                pass
             return
 
     async def _send_bard_settings(self) -> None:
