@@ -633,6 +633,26 @@ def prepare_conversation(messages: List[Message]) -> tuple:
     return conversation, temp_files
 
 
+def _flatten_cookies(raw_cookies) -> dict | None:
+    """Flatten httpx.Cookies to a plain dict. Google issues same-name cookies
+    on regional domains (.google.com vs .google.com.hk), which makes
+    dict(cookies.items()) raise CookieConflict — dedup by name, preferring
+    the .google.com copy."""
+    if not raw_cookies or isinstance(raw_cookies, dict):
+        return raw_cookies
+    jar = getattr(raw_cookies, "jar", None)
+    if jar is None:
+        try:
+            return dict(raw_cookies.items())
+        except Exception:
+            return None
+    merged: dict = {}
+    for c in jar:
+        if c.name not in merged or (c.domain or "").lstrip(".") == "google.com":
+            merged[c.name] = c.value
+    return merged
+
+
 async def download_image_as_base64(image, cookies=None) -> str | None:
     """Download an image and return as raw base64 string (no data: prefix).
 
@@ -646,15 +666,7 @@ async def download_image_as_base64(image, cookies=None) -> str | None:
         if isinstance(image, GeneratedImage):
             # s0 = original resolution (no downscale). Set IMAGE_DOWNLOAD_SIZE env to limit.
             url = url + f"=s{IMAGE_DOWNLOAD_SIZE}"
-            # Convert curl_cffi Cookies to dict for httpx compatibility
-            raw_cookies = image.cookies
-            if raw_cookies and not isinstance(raw_cookies, dict):
-                try:
-                    req_cookies = dict(raw_cookies.items())
-                except Exception:
-                    req_cookies = {k: v for k, v in raw_cookies.items()} if hasattr(raw_cookies, 'items') else raw_cookies
-            else:
-                req_cookies = raw_cookies
+            req_cookies = _flatten_cookies(image.cookies)
 
         async with AsyncClient(
             http2=True, follow_redirects=True, cookies=req_cookies, timeout=45.0,
@@ -1124,13 +1136,7 @@ async def download_video_as_base64(video: GeneratedVideo) -> str | None:
     """Download a video and return as raw base64 string."""
     try:
         url = video.url
-        # Build cookies for download
-        req_cookies = {}
-        if video.cookies:
-            if isinstance(video.cookies, dict):
-                req_cookies = video.cookies
-            elif hasattr(video.cookies, "jar"):
-                req_cookies = {c.name: c.value for c in video.cookies.jar}
+        req_cookies = _flatten_cookies(video.cookies) or {}
 
         async with AsyncClient(
             http2=True, follow_redirects=True, cookies=req_cookies, timeout=60.0

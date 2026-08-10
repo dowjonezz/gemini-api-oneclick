@@ -1177,12 +1177,7 @@ async def slot_music_generation(
         # Download MP3
         mp3_b64 = None
         if media_item.mp3_url:
-            req_cookies = {}
-            if media_item.cookies:
-                if isinstance(media_item.cookies, dict):
-                    req_cookies = media_item.cookies
-                elif hasattr(media_item.cookies, "jar"):
-                    req_cookies = {c.name: c.value for c in media_item.cookies.jar}
+            req_cookies = _flatten_cookies(media_item.cookies) or {}
             mp3_b64 = await download_audio_as_base64(media_item.mp3_url, req_cookies, media_item.account_index)
 
         # Download MP4 video
