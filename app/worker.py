@@ -525,20 +525,33 @@ async def _retry_media_request(label: str, factory, retries: int = 2):
     raise RuntimeError(f"{label} failed")
 
 
+def _flatten_cookies(raw_cookies) -> dict | None:
+    """Flatten httpx.Cookies to a plain dict. Google issues same-name cookies
+    on regional domains (.google.com vs .google.com.hk), which makes
+    dict(cookies.items()) raise CookieConflict — dedup by name, preferring
+    the .google.com copy."""
+    if not raw_cookies or isinstance(raw_cookies, dict):
+        return raw_cookies
+    jar = getattr(raw_cookies, "jar", None)
+    if jar is None:
+        try:
+            return dict(raw_cookies.items())
+        except Exception:
+            return None
+    merged: dict = {}
+    for c in jar:
+        if c.name not in merged or (c.domain or "").lstrip(".") == "google.com":
+            merged[c.name] = c.value
+    return merged
+
+
 async def download_image_as_base64(image, cookies=None) -> str | None:
     try:
         url = image.url
         req_cookies = cookies
         if isinstance(image, GeneratedImage):
             url = url + f"=s{IMAGE_DOWNLOAD_SIZE}"
-            raw_cookies = image.cookies
-            if raw_cookies and not isinstance(raw_cookies, dict):
-                try:
-                    req_cookies = dict(raw_cookies.items())
-                except Exception:
-                    req_cookies = {k: v for k, v in raw_cookies.items()} if hasattr(raw_cookies, 'items') else raw_cookies
-            else:
-                req_cookies = raw_cookies
+            req_cookies = _flatten_cookies(image.cookies)
         for attempt in range(1, _DOWNLOAD_RETRIES + 1):
             async with AsyncClient(http2=True, follow_redirects=True, cookies=req_cookies, timeout=90.0) as http_client:
                 resp = await http_client.get(url)
@@ -558,12 +571,7 @@ async def download_image_as_base64(image, cookies=None) -> str | None:
 async def download_video_as_base64(video: GeneratedVideo) -> str | None:
     try:
         url = video.url
-        req_cookies = {}
-        if video.cookies:
-            if isinstance(video.cookies, dict):
-                req_cookies = video.cookies
-            elif hasattr(video.cookies, "jar"):
-                req_cookies = {c.name: c.value for c in video.cookies.jar}
+        req_cookies = _flatten_cookies(video.cookies) or {}
         if "usercontent.google.com" in url and "authuser" not in url:
             url += f"&authuser={video.account_index}" if "?" in url else f"?authuser={video.account_index}"
         for attempt in range(1, _DOWNLOAD_RETRIES + 1):
