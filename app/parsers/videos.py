@@ -22,4 +22,10 @@ async def parse_video_generation_result(
         if b64:
             entry["b64_json"] = b64
         result_data.append(entry)
+    # Gemini responses can carry extra video URLs that serve no playable
+    # content; once at least one real download succeeded, drop the duds
+    # instead of surfacing dead url-only entries.
+    downloaded = [e for e in result_data if "b64_json" in e]
+    if downloaded:
+        result_data = downloaded
     return result_data, collect_generated_video_urls(raw_capture)

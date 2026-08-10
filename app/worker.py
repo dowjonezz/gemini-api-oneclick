@@ -568,6 +568,12 @@ async def download_image_as_base64(image, cookies=None) -> str | None:
         return None
 
 
+def _looks_like_video(data: bytes) -> bool:
+    """MP4 (ftyp box) or WebM/Matroska magic — rejects empty bodies and HTML
+    error pages served with HTTP 200."""
+    return len(data) > 8 and (data[4:8] == b"ftyp" or data[:4] == b"\x1a\x45\xdf\xa3")
+
+
 async def download_video_as_base64(video: GeneratedVideo) -> str | None:
     try:
         url = video.url
@@ -578,6 +584,10 @@ async def download_video_as_base64(video: GeneratedVideo) -> str | None:
             async with AsyncClient(http2=True, follow_redirects=True, cookies=req_cookies, timeout=120.0) as http_client:
                 resp = await http_client.get(url)
                 if resp.status_code == 200:
+                    if not _looks_like_video(resp.content):
+                        logger.warning("Video download returned non-video content (%d bytes): %s",
+                                       len(resp.content), url[:80])
+                        return None
                     return base64.b64encode(resp.content).decode("utf-8")
                 logger.warning("Failed to download video (attempt %d/%d): %d %s",
                                attempt, _DOWNLOAD_RETRIES, resp.status_code, url[:80])

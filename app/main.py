@@ -1132,6 +1132,12 @@ class VideoGenerationRequest(BaseModel):
     media_type: Optional[str] = "image"  # "image" or "video"
 
 
+def _looks_like_video(data: bytes) -> bool:
+    """MP4 (ftyp box) or WebM/Matroska magic — rejects empty bodies and HTML
+    error pages served with HTTP 200."""
+    return len(data) > 8 and (data[4:8] == b"ftyp" or data[:4] == b"\x1a\x45\xdf\xa3")
+
+
 async def download_video_as_base64(video: GeneratedVideo) -> str | None:
     """Download a video and return as raw base64 string."""
     try:
@@ -1146,6 +1152,9 @@ async def download_video_as_base64(video: GeneratedVideo) -> str | None:
                 url += f"&authuser={video.account_index}" if "?" in url else f"?authuser={video.account_index}"
             resp = await http_client.get(url)
             if resp.status_code == 200:
+                if not _looks_like_video(resp.content):
+                    logger.warning(f"Video download returned non-video content ({len(resp.content)} bytes): {url[:80]}")
+                    return None
                 return base64.b64encode(resp.content).decode("utf-8")
             else:
                 logger.warning(f"Failed to download video: {resp.status_code} {url[:80]}")
