@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gemini Gateway</title>
+<title>Шлюз Gemini</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍪</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Outfit:wght@300;400;500&display=swap" rel="stylesheet">
@@ -695,12 +695,12 @@ body::before {
 <div class="login-screen" id="loginScreen">
   <div class="login-box">
     <span class="login-icon">&#x26A1;</span>
-    <h1>Gemini Gateway</h1>
+    <h1>Шлюз Gemini</h1>
     <p>Gemini API OneClick</p>
     <form onsubmit="doLogin();return false;" autocomplete="on">
       <input type="text" name="username" value="admin" autocomplete="username" style="position:absolute;opacity:0;height:0;pointer-events:none" tabindex="-1">
-      <input type="password" class="login-input" id="loginPwd" name="password" placeholder="输入密码" autocomplete="current-password">
-      <button type="submit" class="login-btn" id="loginBtn">登录</button>
+      <input type="password" class="login-input" id="loginPwd" name="password" placeholder="Введите пароль" autocomplete="current-password">
+      <button type="submit" class="login-btn" id="loginBtn">Войти</button>
     </form>
     <div class="login-error" id="loginErr"></div>
   </div>
@@ -712,26 +712,26 @@ body::before {
     <div class="topbar-left">
       <span class="topbar-logo">&#x26A1;</span>
       <div>
-        <div class="topbar-title">Gemini Gateway</div>
+        <div class="topbar-title">Шлюз Gemini</div>
         <div class="topbar-sub" id="topbarSub">Gemini API OneClick v2.0.0</div>
       </div>
     </div>
     <div class="topbar-right">
-      <span class="stat-pill mode" id="modePill" style="display:none">模式未知</span>
-      <span class="stat-pill ok" id="statOk">0 正常</span>
-      <span class="stat-pill warn" id="statBad">0 异常</span>
-      <span class="stat-pill disabled" id="statOff">0 已禁用</span>
-      <button class="btn-topbar" onclick="openGroupManager()"><span class="icon">&#x1F3F7;</span> 分组管理</button>
-      <button class="btn-topbar" id="refreshBtn" onclick="doRefresh()"><span class="icon">&#x21BB;</span> 刷新</button>
-      <button class="btn-topbar" onclick="openGuardSettings()"><span class="icon">&#x2699;</span> 设置</button>
-      <button class="btn-topbar" onclick="doLogout()"><span class="icon">&#x2192;</span> 退出</button>
+      <span class="stat-pill mode" id="modePill" style="display:none">Режим неизвестен</span>
+      <span class="stat-pill ok" id="statOk">0 в норме</span>
+      <span class="stat-pill warn" id="statBad">0 с ошибкой</span>
+      <span class="stat-pill disabled" id="statOff">0 отключено</span>
+      <button class="btn-topbar" onclick="openGroupManager()"><span class="icon">&#x1F3F7;</span> Группы</button>
+      <button class="btn-topbar" id="refreshBtn" onclick="doRefresh()"><span class="icon">&#x21BB;</span> Обновить</button>
+      <button class="btn-topbar" onclick="openGuardSettings()"><span class="icon">&#x2699;</span> Настройки</button>
+      <button class="btn-topbar" onclick="doLogout()"><span class="icon">&#x2192;</span> Выйти</button>
     </div>
   </div>
 
   <!-- Tab Bar -->
   <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('manage')" id="tabManage">🍪 容器管理</button>
-    <button class="tab-btn" onclick="switchTab('studio')" id="tabStudio">🎨 影像工作室</button>
+    <button class="tab-btn active" onclick="switchTab('manage')" id="tabManage">🍪 Контейнеры</button>
+    <button class="tab-btn" onclick="switchTab('studio')" id="tabStudio">🎨 Студия медиа</button>
   </div>
 
   <!-- Tab 1: Container Management -->
@@ -739,7 +739,7 @@ body::before {
     <div class="grid" id="grid"></div>
     <div class="log-panel">
       <div class="log-toggle" onclick="toggleLogs()">
-        <div class="log-header">&#x1F4CB; 网关日志</div>
+        <div class="log-header">&#x1F4CB; Журнал шлюза</div>
         <span class="log-arrow" id="logArrow">&#x25BC;</span>
       </div>
       <div class="log-body" id="logBody">
@@ -753,24 +753,24 @@ body::before {
     <!-- Zone 1: Tool Area -->
     <div class="studio-section">
       <div class="studio-section-title">
-        <span>✨ 生成设置</span>
+        <span>✨ Настройки генерации</span>
       </div>
       <!-- Prompt -->
       <div style="margin-bottom:0.8rem">
-        <textarea id="imgPrompt" rows="3" placeholder="描述你想生成的画面，如：一只橘猫趴在窗台上晒太阳，窗外是樱花&#10;&#10;Shift+Enter 换行，Enter 生成" style="width:100%;padding:0.6rem 0.8rem;border:2px solid var(--border);border-radius:var(--radius-sm);font-family:'Outfit',sans-serif;font-size:0.88rem;resize:vertical;line-height:1.5" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();doImgGen()}"></textarea>
+        <textarea id="imgPrompt" rows="3" placeholder="Опишите желаемую сцену, например: рыжий кот греется на подоконнике, а за окном цветёт сакура&#10;&#10;Shift+Enter — новая строка, Enter — создать" style="width:100%;padding:0.6rem 0.8rem;border:2px solid var(--border);border-radius:var(--radius-sm);font-family:'Outfit',sans-serif;font-size:0.88rem;resize:vertical;line-height:1.5" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();doImgGen()}"></textarea>
       </div>
       <!-- Negative prompt with presets -->
       <details style="margin-bottom:0.8rem">
-        <summary style="cursor:pointer;font-size:0.8rem;color:var(--text-muted);user-select:none">排除内容（负面提示词）</summary>
+        <summary style="cursor:pointer;font-size:0.8rem;color:var(--text-muted);user-select:none">Исключить из результата (негативный промпт)</summary>
         <div id="negPresets" style="display:flex;flex-wrap:wrap;gap:0.3rem;margin-top:0.4rem"></div>
-        <input type="text" id="imgNeg" placeholder="自定义排除内容" style="width:100%;margin-top:0.4rem;padding:0.4rem 0.8rem;border:2px solid var(--border);border-radius:var(--radius-sm);font-family:'Outfit',sans-serif;font-size:0.82rem">
+        <input type="text" id="imgNeg" placeholder="Свои исключения" style="width:100%;margin-top:0.4rem;padding:0.4rem 0.8rem;border:2px solid var(--border);border-radius:var(--radius-sm);font-family:'Outfit',sans-serif;font-size:0.82rem">
       </details>
       <!-- Style: three panels with toggle buttons -->
       <div style="margin-bottom:0.6rem">
         <div style="display:flex;gap:0.3rem;margin-bottom:0.4rem">
-          <button class="style-tab-btn" id="styleTabImg" onclick="toggleStylePanel('img')" style="flex:1;padding:0.35rem 0;font-size:0.78rem;font-weight:600;border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--surface);transition:all 0.2s">🎨 图片风格</button>
-          <button class="style-tab-btn" id="styleTabVid" onclick="toggleStylePanel('vid')" style="flex:1;padding:0.35rem 0;font-size:0.78rem;font-weight:600;border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--surface);transition:all 0.2s">🎬 视频风格</button>
-          <button class="style-tab-btn" id="styleTabMusic" onclick="toggleStylePanel('music')" style="flex:1;padding:0.35rem 0;font-size:0.78rem;font-weight:600;border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--surface);transition:all 0.2s">🎵 音乐风格</button>
+          <button class="style-tab-btn" id="styleTabImg" onclick="toggleStylePanel('img')" style="flex:1;padding:0.35rem 0;font-size:0.78rem;font-weight:600;border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--surface);transition:all 0.2s">🎨 Стиль изображения</button>
+          <button class="style-tab-btn" id="styleTabVid" onclick="toggleStylePanel('vid')" style="flex:1;padding:0.35rem 0;font-size:0.78rem;font-weight:600;border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--surface);transition:all 0.2s">🎬 Стиль видео</button>
+          <button class="style-tab-btn" id="styleTabMusic" onclick="toggleStylePanel('music')" style="flex:1;padding:0.35rem 0;font-size:0.78rem;font-weight:600;border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--surface);transition:all 0.2s">🎵 Стиль музыки</button>
         </div>
         <div id="stylePanelImg" style="display:none">
           <div id="imgStyles" style="display:flex;flex-wrap:wrap;gap:0.3rem;padding-bottom:0.3rem"></div>
@@ -785,7 +785,7 @@ body::before {
       <!-- Custom templates (compact inline) -->
       <div id="styleTemplateZone" style="margin-bottom:0.6rem;display:none">
         <div class="studio-label" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem">
-          <span>🎭 模板</span>
+          <span>🎭 Шаблоны</span>
           <span id="styleTemplateCount" style="font-size:0.68rem;color:var(--text-light)"></span>
         </div>
         <div id="styleTemplates" style="display:flex;gap:0.4rem;overflow-x:auto;padding-bottom:0.2rem"></div>
@@ -794,32 +794,32 @@ body::before {
       <!-- Row 1: 比例 + 模型 + 质量 + 数量 -->
       <!-- 比例 + 模型选择 -->
       <div class="img-ctrl-row" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.6rem;flex-wrap:wrap">
-        <div class="studio-label" style="margin:0;flex-shrink:0">比例</div>
+        <div class="studio-label" style="margin:0;flex-shrink:0">Формат</div>
         <div id="imgRatios" style="display:flex;gap:0.25rem"></div>
         <div style="margin-left:auto;display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap">
-          <span style="font-size:0.72rem;color:var(--text-muted);flex-shrink:0">提示词</span>
+          <span style="font-size:0.72rem;color:var(--text-muted);flex-shrink:0">Промпт</span>
           <select id="imgOptModel" class="img-select img-model-sel" style="font-size:0.78rem"></select>
-          <span style="font-size:0.72rem;color:var(--text-muted);flex-shrink:0">生图</span>
+          <span style="font-size:0.72rem;color:var(--text-muted);flex-shrink:0">Изображение</span>
           <select id="imgModel" class="img-select img-model-sel" style="font-size:0.78rem"></select>
-          <select id="imgQuality" class="img-select" style="padding:0.3rem 0.5rem;font-size:0.78rem;flex-shrink:0"><option value="standard">标准</option><option value="hd">HD</option></select>
+          <select id="imgQuality" class="img-select" style="padding:0.3rem 0.5rem;font-size:0.78rem;flex-shrink:0"><option value="standard">Стандарт</option><option value="hd">HD</option></select>
         </div>
       </div>
       <!-- Row 3: Image area (upload + edit) left, buttons right -->
       <div>
-        <div class="studio-label" style="margin-bottom:0.3rem">素材（拖拽上传图片/视频/音频）</div>
+        <div class="studio-label" style="margin-bottom:0.3rem">Материал (перетащите изображение, видео или аудио)</div>
         <div id="imgEditRow" style="display:flex;gap:1.2rem;align-items:flex-start">
           <!-- Left: Image display + edit zone -->
           <div style="flex:1 1 0;min-width:0">
             <div id="imgUploadArea" style="border:2px dashed var(--border);border-radius:var(--radius-sm);padding:0.8rem;cursor:pointer;transition:all 0.2s;font-size:0.82rem;color:var(--text-muted);display:flex;align-items:center;justify-content:center" onclick="if(!uploadedImageB64)document.getElementById('imgFileInput').click()" ondragover="event.preventDefault();this.style.borderColor='var(--primary)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="event.preventDefault();this.style.borderColor='var(--border)';handleImageDrop(event)">
               <div id="imgUploadEmpty" style="text-align:center;padding:1rem">
                 <div style="font-size:1.5rem;margin-bottom:0.3rem">🖼️</div>
-                <div>拖拽或点击上传图片/视频/音频</div>
-                <div style="font-size:0.72rem;margin-top:0.2rem">支持从图库拖入 · 图片/视频/音频均可</div>
+                <div>Перетащите или нажмите для загрузки изображения, видео или аудио</div>
+                <div style="font-size:0.72rem;margin-top:0.2rem">Можно перетаскивать из галереи; поддерживаются все типы медиа</div>
               </div>
               <div id="imgUploadPreview" style="display:none;width:100%">
                 <img id="imgPreviewImg" style="width:100%;max-height:500px;border-radius:6px;object-fit:contain;display:block">
                 <div id="imgFileInfo" style="font-size:0.72rem;color:var(--text-muted);margin-top:0.4rem;text-align:center"></div>
-                <div id="editSessionInfo" style="display:none;font-size:0.72rem;color:var(--success);text-align:center;margin-top:0.2rem">🔗 编辑会话进行中 — 继续输入指令修改图片</div>
+                <div id="editSessionInfo" style="display:none;font-size:0.72rem;color:var(--success);text-align:center;margin-top:0.2rem">🔗 Сеанс редактирования активен — продолжайте вводить команды</div>
               </div>
             </div>
             <input type="file" id="imgFileInput" accept="image/*,video/*,audio/*" style="display:none" onchange="handleImageSelect(this)">
@@ -828,29 +828,29 @@ body::before {
           <div id="imgBtnCol" style="flex:0 0 120px;display:flex;flex-direction:column;gap:0.4rem">
             <!-- ═══ Create menu (no material) ═══ -->
             <div id="menuCreate">
-              <div style="font-size:0.68rem;color:var(--text-light);text-align:center;margin-bottom:0.3rem;font-weight:600">✨ 创作</div>
+              <div style="font-size:0.68rem;color:var(--text-light);text-align:center;margin-bottom:0.3rem;font-weight:600">✨ Создание</div>
               <div style="display:flex;flex-direction:column;gap:0.4rem">
-                <button class="btn btn-primary" id="imgGenBtn" onclick="doImgGen()" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center">🎨 生成图片</button>
-                <button class="btn btn-primary" id="vidGenBtn" onclick="doVidGen()" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center;background:linear-gradient(135deg,#6366f1,#8b5cf6)">🎬 生成视频</button>
-                <button class="btn btn-primary" id="musicGenBtn" onclick="doMusicGen()" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center;background:linear-gradient(135deg,#f59e0b,#ef4444)">🎵 生成音乐</button>
-                <button class="btn btn-ghost" onclick="optimizePrompt(this)" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--border);border-radius:var(--radius-sm);white-space:nowrap;text-align:center">✨ 优化提示词</button>
+                <button class="btn btn-primary" id="imgGenBtn" onclick="doImgGen()" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center">🎨 Создать изображение</button>
+                <button class="btn btn-primary" id="vidGenBtn" onclick="doVidGen()" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center;background:linear-gradient(135deg,#6366f1,#8b5cf6)">🎬 Создать видео</button>
+                <button class="btn btn-primary" id="musicGenBtn" onclick="doMusicGen()" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center;background:linear-gradient(135deg,#f59e0b,#ef4444)">🎵 Создать музыку</button>
+                <button class="btn btn-ghost" onclick="optimizePrompt(this)" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--border);border-radius:var(--radius-sm);white-space:nowrap;text-align:center">✨ Улучшить промпт</button>
               </div>
             </div>
             <!-- ═══ Edit menu (has material) ═══ -->
             <div id="menuEdit" style="display:none">
-              <div style="font-size:0.68rem;color:var(--text-light);text-align:center;margin-bottom:0.3rem;font-weight:600">✏️ 编辑 · 转换</div>
+              <div style="font-size:0.68rem;color:var(--text-light);text-align:center;margin-bottom:0.3rem;font-weight:600">✏️ Редактирование · преобразование</div>
               <div style="display:flex;flex-direction:column;gap:0.4rem">
-                <button class="btn btn-primary" onclick="doEditTo('image')" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center">🎨 → 图片</button>
-                <button class="btn btn-primary" onclick="doEditTo('video')" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center;background:linear-gradient(135deg,#6366f1,#8b5cf6)">🎬 → 视频</button>
-                <button class="btn btn-primary" onclick="doEditTo('music')" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center;background:linear-gradient(135deg,#f59e0b,#ef4444)">🎵 → 音乐</button>
+                <button class="btn btn-primary" onclick="doEditTo('image')" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center">🎨 → изображение</button>
+                <button class="btn btn-primary" onclick="doEditTo('video')" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center;background:linear-gradient(135deg,#6366f1,#8b5cf6)">🎬 → видео</button>
+                <button class="btn btn-primary" onclick="doEditTo('music')" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center;background:linear-gradient(135deg,#f59e0b,#ef4444)">🎵 → музыку</button>
                 <div style="border-top:1px solid var(--border);margin:0.1rem 0"></div>
-                <button class="btn btn-ghost" id="analyzeBtn" onclick="analyzeStyle()" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--accent-light);border-radius:var(--radius-sm);white-space:nowrap;color:#92610E;background:var(--accent-light);text-align:center">🔍 解析风格</button>
-                <button class="btn btn-ghost" id="saveMediaBtn" onclick="saveUploadedToGallery()" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--success-light);border-radius:var(--radius-sm);white-space:nowrap;color:var(--success);text-align:center">💾 存入</button>
-                <button class="btn btn-ghost" onclick="clearUploadImage()" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--danger-light);border-radius:var(--radius-sm);white-space:nowrap;color:var(--danger);text-align:center">✕ 移除素材</button>
-                <button class="btn btn-ghost" onclick="optimizePrompt(this)" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--border);border-radius:var(--radius-sm);white-space:nowrap;text-align:center">✨ 优化提示词</button>
+                <button class="btn btn-ghost" id="analyzeBtn" onclick="analyzeStyle()" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--accent-light);border-radius:var(--radius-sm);white-space:nowrap;color:#92610E;background:var(--accent-light);text-align:center">🔍 Анализ стиля</button>
+                <button class="btn btn-ghost" id="saveMediaBtn" onclick="saveUploadedToGallery()" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--success-light);border-radius:var(--radius-sm);white-space:nowrap;color:var(--success);text-align:center">💾 Сохранить</button>
+                <button class="btn btn-ghost" onclick="clearUploadImage()" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--danger-light);border-radius:var(--radius-sm);white-space:nowrap;color:var(--danger);text-align:center">✕ Удалить материал</button>
+                <button class="btn btn-ghost" onclick="optimizePrompt(this)" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--border);border-radius:var(--radius-sm);white-space:nowrap;text-align:center">✨ Улучшить промпт</button>
               </div>
             </div>
-            <button class="btn btn-ghost" id="imgCancelBtn" onclick="cancelImgRequest()" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--text-light);border-radius:var(--radius-sm);white-space:nowrap;color:var(--text-muted);text-align:center;display:none">⏹ 取消</button>
+            <button class="btn btn-ghost" id="imgCancelBtn" onclick="cancelImgRequest()" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--text-light);border-radius:var(--radius-sm);white-space:nowrap;color:var(--text-muted);text-align:center;display:none">⏹ Отменить</button>
           </div>
         </div>
       </div>
@@ -865,14 +865,14 @@ body::before {
     <!-- Zone 3: Project Gallery -->
     <div class="studio-section">
       <div class="studio-section-title" style="justify-content:space-between">
-        <span class="section-toggle" onclick="toggleSection('gallery_collapsed','galleryContent')">🖼️ 项目图库</span>
+        <span class="section-toggle" onclick="toggleSection('gallery_collapsed','galleryContent')">🖼️ Галерея проекта</span>
         <span id="galleryCount" style="font-size:0.78rem;color:var(--text-muted);font-weight:400"></span>
       </div>
       <div id="galleryContent">
         <div id="galleryGrid" class="img-grid cols-4"></div>
-        <div id="galleryEmpty" class="gallery-empty">还没有保存的图片</div>
+        <div id="galleryEmpty" class="gallery-empty">Сохранённых изображений пока нет</div>
         <div id="galleryMore" style="text-align:center;padding:0.6rem;display:none">
-          <button class="img-action-btn dl" onclick="loadMoreGallery()" style="padding:0.4rem 1.2rem">加载更多</button>
+          <button class="img-action-btn dl" onclick="loadMoreGallery()" style="padding:0.4rem 1.2rem">Загрузить ещё</button>
         </div>
       </div>
     </div>
@@ -880,14 +880,14 @@ body::before {
     <!-- Zone 4: Video Gallery -->
     <div class="studio-section">
       <div class="studio-section-title" style="justify-content:space-between">
-        <span class="section-toggle" onclick="toggleSection('vidgallery_collapsed','vidGalleryContent')">🎬 视频库</span>
+        <span class="section-toggle" onclick="toggleSection('vidgallery_collapsed','vidGalleryContent')">🎬 Видеотека</span>
         <span id="vidGalleryCount" style="font-size:0.78rem;color:var(--text-muted);font-weight:400"></span>
       </div>
       <div id="vidGalleryContent">
         <div id="vidGalleryGrid" class="img-grid cols-4"></div>
-        <div id="vidGalleryEmpty" class="gallery-empty">还没有保存的视频</div>
+        <div id="vidGalleryEmpty" class="gallery-empty">Сохранённых видео пока нет</div>
         <div id="vidGalleryMore" style="text-align:center;padding:0.6rem;display:none">
-          <button class="img-action-btn dl" onclick="loadMoreVideoGallery()" style="padding:0.4rem 1.2rem">加载更多</button>
+          <button class="img-action-btn dl" onclick="loadMoreVideoGallery()" style="padding:0.4rem 1.2rem">Загрузить ещё</button>
         </div>
       </div>
     </div>
@@ -1107,6 +1107,204 @@ body::before {
 
 <script>
 const API = '/api';
+
+// Russian UI layer.  The gateway can also return short Chinese status strings;
+// observing DOM updates keeps generated cards, dialogs and notifications in the
+// same language without changing API payloads or model prompts.
+const RU_UI = {
+  '描述你想生成的画面，如：一只橘猫趴在窗台上晒太阳，窗外是樱花': 'Опишите желаемую сцену, например: рыжий кот греется на подоконнике, за окном цветёт сакура',
+  'Shift+Enter 换行，Enter 生成': 'Shift+Enter — новая строка, Enter — создать',
+  '绑定网卡 IP': 'IP-адрес для привязки',
+  '达到阈值后自动禁用容器': 'Автоматически отключать контейнер после достижения порога',
+  '连续多少次匹配错误后禁用': 'Отключать после указанного числа последовательных ошибок',
+  '触发禁用的状态码': 'Коды статуса для отключения',
+  '触发禁用的关键词': 'Ключевые слова для отключения',
+  '仅这些 HTTP 状态码会触发计数。留空则忽略状态码。': 'Только эти коды HTTP учитываются. Оставьте пустым, чтобы их игнорировать.',
+  '错误信息包含这些关键词时触发计数。不区分大小写。': 'Счётчик растёт, когда ошибка содержит эти слова. Регистр не важен.',
+  '显示最近请求的模型映射记录：请求模型 → 实际 header 家族和 token。': 'Показывает последние сопоставления модели: запрос → фактические заголовки и токен.',
+  '这里保存稳定槽位。Gemini 运行时模型名变化后，系统会优先保留人工选择，失效时再自动回退。': 'Здесь сохраняются закреплённые слоты моделей. Ручной выбор имеет приоритет до тех пор, пока модель доступна.',
+  '0.0.0.0 = 所有网卡（docker 消费者/同机服务能访问，需防火墙保护端口）· 127.0.0.1 = 仅本机回环（需反代）· 或填内网 IP': '0.0.0.0 — все интерфейсы (защитите порт firewall); 127.0.0.1 — только локально; также можно указать LAN IP.',
+  '编辑会话进行中 — 继续输入指令修改图片': 'Сеанс редактирования активен — продолжайте вводить команды для изменения изображения',
+  '拖拽或点击上传图片/视频/音频': 'Перетащите или нажмите, чтобы загрузить изображение, видео или аудио',
+  '支持从图库拖入 · 图片/视频/音频均可': 'Можно перетаскивать из галереи; поддерживаются изображения, видео и аудио',
+  '素材（拖拽上传图片/视频/音频）': 'Материал (перетащите изображение, видео или аудио)',
+  '排除内容（负面提示词）': 'Исключить из результата (негативный промпт)',
+  '自定义排除内容': 'Свои исключения',
+  '提示词优化仅支持图片模式': 'Улучшение промпта доступно только для изображений',
+  '请先输入提示词': 'Сначала введите промпт',
+  '请输入编辑指令': 'Введите команду редактирования',
+  '请先上传素材': 'Сначала загрузите материал',
+  '请上传图片、视频或音频文件': 'Загрузите изображение, видео или аудиофайл',
+  '请先上传图片或视频': 'Сначала загрузите изображение или видео',
+  '音频不支持风格解析': 'Аудио не поддерживает анализ стиля',
+  '请先输入密码': 'Введите пароль',
+  '密码错误': 'Неверный пароль',
+  '登录失败': 'Не удалось войти',
+  '连接失败': 'Ошибка подключения',
+  '加载设置失败': 'Не удалось загрузить настройки',
+  '加载失败': 'Не удалось загрузить',
+  '保存失败': 'Не удалось сохранить',
+  '创建失败': 'Не удалось создать',
+  '删除失败': 'Не удалось удалить',
+  '重启失败': 'Не удалось перезапустить',
+  '操作失败': 'Операция не выполнена',
+  '测试失败': 'Проверка не пройдена',
+  '任务创建失败': 'Не удалось создать задачу',
+  '模式未知': 'Режим неизвестен',
+  'worker 模式': 'Режим worker',
+  'accounts 模式': 'Режим accounts',
+  '容器管理': 'Управление контейнерами',
+  '影像工作室': 'Студия медиа',
+  '网关日志': 'Журнал шлюза',
+  '生成设置': 'Настройки генерации',
+  '图片风格': 'Стиль изображения',
+  '视频风格': 'Стиль видео',
+  '音乐风格': 'Стиль музыки',
+  '模板': 'Шаблоны',
+  '比例': 'Соотношение',
+  '提示词': 'Промпт',
+  '生图': 'Изображение',
+  '标准': 'Стандарт',
+  '创作': 'Создание',
+  '生成图片': 'Создать изображение',
+  '生成视频': 'Создать видео',
+  '生成音乐': 'Создать музыку',
+  '优化提示词': 'Улучшить промпт',
+  '编辑 · 转换': 'Редактирование · преобразование',
+  '解析风格': 'Анализ стиля',
+  '移除素材': 'Удалить материал',
+  '取消': 'Отмена',
+  '项目图库': 'Галерея проекта',
+  '视频库': 'Видеотека',
+  '音频库': 'Аудиотека',
+  '还没有保存的图片': 'Сохранённых изображений пока нет',
+  '还没有保存的视频': 'Сохранённых видео пока нет',
+  '还没有保存的音频': 'Сохранённого аудио пока нет',
+  '加载更多': 'Загрузить ещё',
+  '账号名称': 'Название аккаунта',
+  '可选别名': 'Необязательный псевдоним',
+  '所属分组': 'Группа',
+  '默认分组': 'Группа по умолчанию',
+  '粘贴 cookie 值': 'Вставьте значение cookie',
+  '部署': 'Применить',
+  '容器日志': 'Журнал контейнера',
+  '自动禁用': 'Автоотключение',
+  '错误阈值': 'Порог ошибок',
+  '模型列表': 'Список моделей',
+  '模型槽位': 'Слоты моделей',
+  '模型真相': 'Фактические модели',
+  '刷新': 'Обновить',
+  '保存槽位': 'Сохранить слоты',
+  '点击刷新获取模型列表': 'Нажмите «Обновить», чтобы получить список моделей',
+  '展开全部': 'Развернуть всё',
+  '收起': 'Свернуть',
+  '暂无模型': 'Моделей пока нет',
+  '暂无槽位': 'Слотов пока нет',
+  '自动选择': 'Выбирать автоматически',
+  '暂无请求记录': 'Записей запросов пока нет',
+  '错误明细': 'Сведения об ошибках',
+  '完整日志：': 'Полный журнал:',
+  '分组管理': 'Управление группами',
+  '新建分组': 'Новая группа',
+  '分组名（小写字母/数字）': 'Название группы (строчные буквы/цифры)',
+  '创建': 'Создать',
+  '分组列表': 'Список групп',
+  '返回列表': 'Вернуться к списку',
+  '勾选要加入此分组的容器（点击切换）': 'Выберите контейнеры для этой группы',
+  '选择容器': 'Выбрать контейнеры',
+  '改名': 'Переименовать',
+  '保存': 'Сохранить',
+  '登录': 'Войти',
+  '退出': 'Выйти',
+  '设置': 'Настройки',
+  '正常': 'Норма',
+  '异常': 'Ошибка',
+  '已禁用': 'Отключён',
+  '已启用': 'Включён',
+  '无 Cookie': 'Нет cookie',
+  '仅生文': 'Только текст',
+  '处理中': 'В работе',
+  '未检测': 'Не проверен',
+  '可用': 'Доступно',
+  '测试中...': 'Проверка…',
+  '测试': 'Проверить',
+  '禁用': 'Отключить',
+  '启用': 'Включить',
+  '删除': 'Удалить',
+  '重启容器': 'Перезапустить контейнер',
+  '重启实例': 'Перезапустить экземпляр',
+  '已刷新': 'Обновлено',
+  '加载中...': 'Загрузка…',
+  '暂无日志': 'Журнал пуст',
+  '已复制': 'Скопировано',
+  '复制失败': 'Не удалось скопировать',
+  '已取消': 'Отменено',
+  '等待中...': 'Ожидание…',
+  '就绪': 'Готово',
+  '请求中...': 'Выполняется…',
+  '全部失败': 'Все попытки не удались',
+  '已保存到图库': 'Сохранено в галерею',
+  '已保存到视频库': 'Сохранено в видеотеку',
+  '已保存到音频库': 'Сохранено в аудиотеку',
+  '已加载到素材区': 'Загружено в область материалов',
+  '编辑': 'Редактировать',
+  '查看提示词': 'Показать промпт',
+  '点击复制': 'Нажмите, чтобы скопировать',
+  '下载': 'Скачать',
+  '打开原始链接': 'Открыть исходную ссылку',
+  '无风格': 'Без стиля',
+  '单色': 'Монохром', '色块': 'Цветовые блоки', '跑道': 'Подиум', '孔版印刷': 'Трафаретная печать',
+  '绚彩': 'Яркие цвета', '哥特黏土': 'Готическая глина', '轰动': 'Экспрессия', '沙龙': 'Салон',
+  '素描': 'Набросок', '电影效果': 'Кинематографично', '蒸汽朋克': 'Стимпанк', '日出': 'Рассвет',
+  '神话斗士': 'Мифический воин', '超现实': 'Сюрреализм', '幽暗': 'Мрачно', '珐琅胸针': 'Эмалевый значок',
+  '赛博格': 'Киборг', '柔美人像': 'Мягкий портрет', '怀旧卡通': 'Ретро-мультфильм', '油画': 'Масляная живопись',
+  '动漫': 'Аниме', '写实': 'Фотореализм', '水彩': 'Акварель', '像素': 'Пиксель-арт', '可爱': 'Милый',
+  '吉卜力': 'Ghibli', '乙女CG': 'Otome CG', '幻想动漫': 'Фэнтези-аниме', '新海诚': 'Макото Синкай', '柔和动漫': 'Мягкое аниме', 'P站精选': 'Подборка Pixiv', '精致线条': 'Тонкие линии',
+  '韩剧': 'Корейская драма', '恐怖片': 'Хоррор', '末日片': 'Постапокалипсис', '悬疑片': 'Детектив', '爱情片': 'Романтика', '动作片': 'Боевик',
+  '武侠片': 'Уся', '科幻片': 'Научная фантастика', '黑色电影': 'Нуар', '吉卜力动画': 'Аниме Ghibli', '慢动作': 'Замедление',
+  '延时': 'Таймлапс', '航拍': 'Аэросъёмка', '跟踪长镜头': 'Следящий план', '第一人称': 'От первого лица', '定格动画': 'Покадровая анимация',
+  '流行': 'Поп', '摇滚': 'Рок', '古典': 'Классика', '爵士': 'Джаз', '电子': 'Электроника', '民谣': 'Фолк', '嘻哈': 'Хип-хоп',
+  '氛围': 'Эмбиент', '乡村': 'Кантри', '雷鬼': 'Регги', '波萨诺瓦': 'Босса-нова', '管弦乐': 'Оркестровая музыка', '原声': 'Акустика', '摇篮曲': 'Колыбельная', '电影配乐': 'Саундтрек',
+  '粗线条': 'Толстые линии', '漫画描边': 'Комиксный контур', '粗糙质感': 'Грубая фактура', '欧美漫画': 'Западный комикс', '写实照片': 'Реалистичное фото', 'Q版变形': 'Чиби', '文字水印': 'Текст и водяные знаки',
+  'Container': 'Контейнер', 'Channel Guard': 'Защита канала'
+};
+
+const RU_UI_ENTRIES = Object.entries(RU_UI).sort((a, b) => b[0].length - a[0].length);
+function localizeRussian(value) {
+  if (!value) return value;
+  let translated = value;
+  for (const [source, target] of RU_UI_ENTRIES) translated = translated.replaceAll(source, target);
+  return translated;
+}
+function localizeRussianNode(root) {
+  if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode);
+  for (const node of textNodes) {
+    const parent = node.parentElement;
+    if (!parent || parent.closest('script, style, textarea, .gallery-meta, .gallery-prompt, .card-name, .card-preview')) continue;
+    const translated = localizeRussian(node.nodeValue);
+    if (translated !== node.nodeValue) node.nodeValue = translated;
+  }
+  if (root.nodeType === Node.ELEMENT_NODE) {
+    root.querySelectorAll?.('[placeholder],[title],[aria-label]').forEach(el => {
+      for (const attr of ['placeholder', 'title', 'aria-label']) {
+        if (el.hasAttribute(attr)) el.setAttribute(attr, localizeRussian(el.getAttribute(attr)));
+      }
+    });
+  }
+}
+localizeRussianNode(document.body);
+new MutationObserver(records => {
+  for (const record of records) {
+    if (record.type === 'characterData') localizeRussianNode(record.target.parentElement);
+    for (const node of record.addedNodes) {
+      if (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.TEXT_NODE) localizeRussianNode(node.nodeType === Node.TEXT_NODE ? node.parentElement : node);
+    }
+  }
+}).observe(document.body, {childList: true, subtree: true, characterData: true});
+
 let password = '';
 let accounts = [];
 let gatewayStatus = null;

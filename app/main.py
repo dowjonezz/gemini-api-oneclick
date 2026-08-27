@@ -48,6 +48,7 @@ from gemini_webapi.constants import AccountStatus, Model
 from gemini_webapi.exceptions import ImageGenerationBlocked
 from gemini_webapi.types.image import GeneratedImage
 from gemini_webapi.types.video import GeneratedVideo
+from slot import ChatSessionStore
 
 # ⚠️ DO NOT REMOVE — auto_refresh kills cookies permanently.
 # gemini_webapi's RotateCookies sends 401 and invalidates all cookies.
@@ -503,6 +504,31 @@ class ChatCompletionRequest(BaseModel):
     user: Optional[str] = None
 
 
+# Opt-in text-chat continuation. This is intentionally separate from image
+# editing sessions: clients that do not send X-Gemini-Session-ID keep the
+# historical stateless OpenAI-compatible behaviour.
+_chat_sessions = ChatSessionStore()
+
+
+def _get_chat_session_id(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    if len(value) > 128 or not re.fullmatch(r"[A-Za-z0-9._:-]+", value):
+        raise HTTPException(status_code=400, detail="Invalid X-Gemini-Session-ID")
+    return value
+
+
+def _get_chat_session_mode(value: str | None) -> str:
+    """Return the explicit lifecycle action; legacy callers default to bootstrap."""
+    mode = (value or "bootstrap").strip().lower()
+    if mode not in {"bootstrap", "continue"}:
+        raise HTTPException(status_code=400, detail="X-Gemini-Session-Mode must be bootstrap or continue")
+    return mode
+
+
 async def verify_api_key(authorization: str = Header(None)):
     """Verify API Key."""
     if not API_KEY:
@@ -602,6 +628,9 @@ def prepare_conversation(messages: List[Message]) -> tuple:
                 conversation += f"Human: {msg.content}\n\n"
             elif msg.role == "assistant":
                 conversation += f"Assistant: {msg.content}\n\n"
+            elif msg.role == "tool":
+                tool_name = f" ({msg.name})" if msg.name else ""
+                conversation += f"Tool result{tool_name}: {msg.content}\n\n"
         else:
             if msg.role == "user":
                 conversation += "Human: "
@@ -609,6 +638,9 @@ def prepare_conversation(messages: List[Message]) -> tuple:
                 conversation += "System: "
             elif msg.role == "assistant":
                 conversation += "Assistant: "
+            elif msg.role == "tool":
+                tool_name = f" ({msg.name})" if msg.name else ""
+                conversation += f"Tool result{tool_name}: "
 
             for item in msg.content:
                 if item.type == "text":
@@ -687,26 +719,87 @@ async def create_chat_completion(
     request: ChatCompletionRequest,
     response: Response,
     api_key: str = Depends(verify_api_key),
+    gemini_session_id: str | None = Header(default=None, alias="X-Gemini-Session-ID"),
+    gemini_session_mode: str | None = Header(default=None, alias="X-Gemini-Session-Mode"),
 ):
     """Handle chat completion requests — transparent stream relay, no retries."""
     trace_headers: dict[str, str] = {}
+    session_id = _get_chat_session_id(gemini_session_id)
+    session_mode = _get_chat_session_mode(gemini_session_mode)
+    session_record = None
+    session_status = "disabled"
 
     try:
-        client = await get_or_create_client()
+        # A continuation must find its existing in-memory ChatSession before
+        # touching Gemini at all. A tool result without that context is unsafe.
+        if session_id and session_mode == "continue":
+            session_record = _chat_sessions.get_active(session_id)
+            if session_record is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Chat session not found; send a bootstrap request with full context",
+                    headers={
+                        "X-OneClick-Chat-Session-Status": "session_not_found",
+                        "X-OneClick-Chat-Session-ID": session_id,
+                    },
+                )
+            session_status = "reused"
+
+        client = None
+        if session_record is None:
+            client = await get_or_create_client()
 
         conversation, temp_files = prepare_conversation(request.messages)
         logger.info(f"Prepared conversation: {conversation[:200]}...")
         logger.info(f"Temp files: {temp_files}")
 
-        model, model_trace = resolve_model_for_chat(request.model)
-        trace_headers = build_model_trace_headers(model_trace, "chat")
-        logger.info("Using model trace: %s", model_trace)
+        model = None
+        if client is not None:
+            model, model_trace = resolve_model_for_chat(request.model)
+            trace_headers = build_model_trace_headers(model_trace, "chat")
+            logger.info("Using model trace: %s", model_trace)
+
+        if session_id and session_mode == "bootstrap":
+            session_record = _chat_sessions.create(session_id, lambda: client.start_chat(model=model))
+            session_status = "new"
+        if session_id:
+            trace_headers["X-OneClick-Chat-Session-Status"] = session_status
+            trace_headers["X-OneClick-Chat-Session-ID"] = session_id
+            logger.info(
+                "Chat session session_id=%s cid=%s account=default status=%s age=%.1fs",
+                session_id,
+                getattr(session_record.chat, "cid", ""),
+                session_status,
+                time.time() - session_record.created_at,
+            )
 
         tracer = RawCaptureTracer()
         logger.info("Sending request to Gemini...")
 
         completion_id = f"chatcmpl-{uuid.uuid4()}"
         created_time = int(time.time())
+
+        async def session_stream():
+            """Use ChatSession when requested; otherwise keep the legacy path."""
+            if session_record:
+                try:
+                    async with session_record.lock:
+                        async for output in session_record.chat.send_message_stream(
+                            conversation,
+                            files=temp_files if temp_files else None,
+                            tracer=tracer,
+                        ):
+                            yield output
+                finally:
+                    _chat_sessions.touch(session_record)
+            else:
+                async for output in client.generate_content_stream(
+                    conversation,
+                    files=temp_files if temp_files else None,
+                    model=model,
+                    tracer=tracer,
+                ):
+                    yield output
 
         if request.stream:
             # ── True streaming: relay Gemini deltas as they arrive ──
@@ -716,12 +809,7 @@ async def create_chat_completion(
                 last_output = None
                 first = True
                 try:
-                    stream_gen = client.generate_content_stream(
-                        conversation,
-                        files=temp_files if temp_files else None,
-                        model=model,
-                    )
-                    async for output in stream_gen:
+                    async for output in session_stream():
                         last_output = output
                         text_delta = output.text_delta or ""
                         thoughts_delta = output.thoughts_delta or ""
@@ -787,6 +875,13 @@ async def create_chat_completion(
                                 }
                                 yield f"data: {json.dumps(img_chunk)}\n\n"
 
+                    if session_record:
+                        logger.info(
+                            "Chat session session_id=%s cid=%s account=default status=%s age=%.1fs",
+                            session_id, getattr(session_record.chat, "cid", ""), session_status,
+                            time.time() - session_record.created_at,
+                        )
+
                 except Exception as e:
                     logger.error(f"Stream error: {e}", exc_info=True)
                     _report_error(e)
@@ -835,12 +930,7 @@ async def create_chat_completion(
             full_thoughts = ""
             last_output = None
 
-            if temp_files:
-                stream_gen = client.generate_content_stream(conversation, files=temp_files, model=model)
-            else:
-                stream_gen = client.generate_content_stream(conversation, model=model)
-
-            async for output in stream_gen:
+            async for output in session_stream():
                 full_text += output.text_delta or ""
                 full_thoughts += output.thoughts_delta or ""
                 last_output = output
@@ -872,6 +962,12 @@ async def create_chat_completion(
                 reply_text = "Empty response from Gemini."
 
             logger.info(f"Response: {reply_text[:200]}...")
+            if session_record:
+                logger.info(
+                    "Chat session session_id=%s cid=%s account=default status=%s age=%.1fs",
+                    session_id, getattr(session_record.chat, "cid", ""), session_status,
+                    time.time() - session_record.created_at,
+                )
 
             result = build_chat_completion_payload(
                 completion_id=completion_id,

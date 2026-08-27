@@ -82,6 +82,11 @@ RUNTIME_MODELS_EXCLUDE = {"gemini-advanced", "gemini-apps-while-signed-out"}
 
 slots: dict[int, Slot] = {}
 
+# A stable text-chat ID may only belong to one Slot.  The ChatSession itself is
+# stored inside that Slot, but this index also prevents an accidental direct
+# request to /slot/B from creating the same logical conversation on account B.
+_chat_session_slots: dict[str, int] = {}
+
 # Shared model cache (safe — model list is the same across accounts)
 _models_cache: list[dict[str, Any]] = []
 _models_cache_time: float = 0.0
@@ -164,6 +169,26 @@ def _get_slot(num: int) -> Slot:
     if num not in slots:
         raise HTTPException(status_code=404, detail=f"Slot {num} not found")
     return slots[num]
+
+
+def _get_chat_session_owner(session_id: str) -> int | None:
+    owner = _chat_session_slots.get(session_id)
+    if owner is None:
+        return None
+    owner_slot = slots.get(owner)
+    if owner_slot is None:
+        del _chat_session_slots[session_id]
+        return None
+    if session_id not in owner_slot.chat_sessions.sessions:
+        del _chat_session_slots[session_id]
+        return None
+    return owner
+
+
+def _drop_chat_session_routes(slot_num: int) -> None:
+    for session_id, owner in list(_chat_session_slots.items()):
+        if owner == slot_num:
+            del _chat_session_slots[session_id]
 
 
 async def _get_client(slot: Slot) -> GeminiClient:
@@ -423,6 +448,26 @@ class ChatCompletionRequest(BaseModel):
     user: Optional[str] = None
 
 
+def _get_chat_session_id(value: str | None) -> str | None:
+    """Validate the opt-in stable ID supplied by the tool router."""
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    if len(value) > 128 or not re.fullmatch(r"[A-Za-z0-9._:-]+", value):
+        raise HTTPException(status_code=400, detail="Invalid X-Gemini-Session-ID")
+    return value
+
+
+def _get_chat_session_mode(value: str | None) -> str:
+    """Return the explicit lifecycle action; old callers default to bootstrap."""
+    mode = (value or "bootstrap").strip().lower()
+    if mode not in {"bootstrap", "continue"}:
+        raise HTTPException(status_code=400, detail="X-Gemini-Session-Mode must be bootstrap or continue")
+    return mode
+
+
 class ImageGenerationRequest(BaseModel):
     prompt: str
     model: Optional[str] = "gemini-3-flash"
@@ -459,10 +504,14 @@ def prepare_conversation(messages: list) -> tuple[str, list[str]]:
         content = msg.content
         role = msg.role
         if isinstance(content, str):
-            prefix = {"system": "System", "user": "Human", "assistant": "Assistant"}.get(role, role)
+            prefix = {"system": "System", "user": "Human", "assistant": "Assistant", "tool": "Tool result"}.get(role, role)
+            if role == "tool" and getattr(msg, "name", None):
+                prefix += f" ({msg.name})"
             conversation += f"{prefix}: {content}\n\n"
         else:
-            prefix = {"system": "System", "user": "Human", "assistant": "Assistant"}.get(role, role)
+            prefix = {"system": "System", "user": "Human", "assistant": "Assistant", "tool": "Tool result"}.get(role, role)
+            if role == "tool" and getattr(msg, "name", None):
+                prefix += f" ({msg.name})"
             conversation += f"{prefix}: "
             for item in content:
                 if isinstance(item, dict):
@@ -636,21 +685,94 @@ async def slot_chat_completion(
     request: ChatCompletionRequest,
     response: Response,
     api_key: str = Depends(_verify_api_key),
+    gemini_session_id: str | None = Header(default=None, alias="X-Gemini-Session-ID"),
+    gemini_session_mode: str | None = Header(default=None, alias="X-Gemini-Session-Mode"),
 ):
     slot = _get_slot(num)
     trace_headers: dict[str, str] = {}
+    session_id = _get_chat_session_id(gemini_session_id)
+    session_mode = _get_chat_session_mode(gemini_session_mode)
+    session_record = None
+    session_status = "disabled"
     try:
-        client = await _get_client(slot)
+        if session_id:
+            owner = _get_chat_session_owner(session_id)
+            if owner is not None and owner != num:
+                logger.warning(
+                    "Rejecting chat session session_id=%s on slot=%d; pinned_slot=%d",
+                    session_id, num, owner,
+                )
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Chat session is pinned to slot {owner}",
+                    headers={
+                        "X-OneClick-Chat-Session-Status": "slot_mismatch",
+                        "X-OneClick-Chat-Session-Slot": str(owner),
+                    },
+                )
+            if session_mode == "continue":
+                session_record = slot.chat_sessions.get_active(session_id)
+                if session_record is None:
+                    _chat_session_slots.pop(session_id, None)
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Chat session not found; send a bootstrap request with full context",
+                        headers={
+                            "X-OneClick-Chat-Session-Status": "session_not_found",
+                            "X-OneClick-Chat-Session-ID": session_id,
+                        },
+                    )
+                session_status = "reused"
+
+        # Do not initialise or call a GeminiClient for a missing continuation.
+        client = None if session_record is not None else await _get_client(slot)
         conversation, temp_files = prepare_conversation(request.messages)
         logger.info("Slot %d chat: %s...", num, conversation[:200])
         slot_log(num, f"Chat: {conversation[:80]}")
 
-        model, model_trace = resolve_model_for_chat(request.model, client)
-        trace_headers = build_model_trace_headers(model_trace, "chat")
+        model = None
+        if client is not None:
+            model, model_trace = resolve_model_for_chat(request.model, client)
+            trace_headers = build_model_trace_headers(model_trace, "chat")
+
+        if session_id and session_mode == "bootstrap":
+            session_record = slot.chat_sessions.create(session_id, lambda: client.start_chat(model=model))
+            _chat_session_slots[session_id] = num
+            session_status = "new"
+        if session_id:
+            trace_headers["X-OneClick-Chat-Session-Status"] = session_status
+            trace_headers["X-OneClick-Chat-Session-ID"] = session_id
+            logger.info(
+                "Slot %d chat session session_id=%s cid=%s account_slot=%d status=%s age=%.1fs",
+                num, session_id, getattr(session_record.chat, "cid", ""), num,
+                session_status, time.time() - session_record.created_at,
+            )
 
         tracer = RawCaptureTracer()
         completion_id = f"chatcmpl-{uuid.uuid4()}"
         created_time = int(time.time())
+
+        async def session_stream():
+            """Keep a continued chat on this slot's GeminiClient/account only."""
+            if session_record:
+                try:
+                    async with session_record.lock:
+                        async for output in session_record.chat.send_message_stream(
+                            conversation,
+                            files=temp_files if temp_files else None,
+                            tracer=tracer,
+                        ):
+                            yield output
+                finally:
+                    slot.chat_sessions.touch(session_record)
+            else:
+                async for output in client.generate_content_stream(
+                    conversation,
+                    files=temp_files if temp_files else None,
+                    model=model,
+                    tracer=tracer,
+                ):
+                    yield output
 
         if request.stream:
             async def stream_relay():
@@ -659,13 +781,7 @@ async def slot_chat_completion(
                 last_output = None
                 first = True
                 try:
-                    stream_gen = client.generate_content_stream(
-                        conversation,
-                        files=temp_files if temp_files else None,
-                        model=model,
-                        tracer=tracer,
-                    )
-                    async for output in stream_gen:
+                    async for output in session_stream():
                         last_output = output
                         text_delta = output.text_delta or ""
                         thoughts_delta = output.thoughts_delta or ""
@@ -716,6 +832,13 @@ async def slot_chat_completion(
                                 }
                                 yield f"data: {json.dumps(img_chunk)}\n\n"
 
+                    if session_record:
+                        logger.info(
+                            "Slot %d chat session session_id=%s cid=%s account_slot=%d status=%s age=%.1fs",
+                            num, session_id, getattr(session_record.chat, "cid", ""), num,
+                            session_status, time.time() - session_record.created_at,
+                        )
+
                 except Exception as e:
                     logger.error("Slot %d stream error: %s", num, e, exc_info=True)
                     slot.report_error(e)
@@ -764,11 +887,7 @@ async def slot_chat_completion(
             full_text = ""
             full_thoughts = ""
             last_output = None
-            stream_gen = client.generate_content_stream(
-                conversation, files=temp_files if temp_files else None, model=model,
-                tracer=tracer,
-            )
-            async for output in stream_gen:
+            async for output in session_stream():
                 full_text += output.text_delta or ""
                 full_thoughts += output.thoughts_delta or ""
                 last_output = output
@@ -804,11 +923,22 @@ async def slot_chat_completion(
                 reply_text=reply_text,
                 conversation=conversation,
             )
+            if session_record:
+                logger.info(
+                    "Slot %d chat session session_id=%s cid=%s account_slot=%d status=%s age=%.1fs",
+                    num, session_id, getattr(session_record.chat, "cid", ""), num,
+                    session_status, time.time() - session_record.created_at,
+                )
             try:
                 log_worker_event(
-                    build_worker_event("chat", trace_headers, last_output),
+                    build_worker_event(
+                        "chat", trace_headers, last_output,
+                        chat_id=getattr(session_record.chat, "cid", "") if session_record else "",
+                        session_id=session_id or "",
+                    ),
                     payload={
-                        "request": {"model": request.model, "prompt": conversation[:1000], "stream": False},
+                        "request": {"model": request.model, "prompt": conversation[:1000], "stream": False,
+                                    "session_id": session_id, "session_status": session_status},
                         "raw_capture": tracer.get_snapshot() if tracer else None,
                     },
                 )
@@ -1430,6 +1560,7 @@ async def worker_reload_slot(num: int):
     """Re-read env file and reinitialise the slot's GeminiClient."""
     slot = _get_slot(num)
     try:
+        _drop_chat_session_routes(num)
         await slot.reload_from_env(ENVS_DIR)
         return {"ok": True, "message": f"Slot {num} reloaded", "health": slot.health_response()}
     except Exception as e:
@@ -1481,6 +1612,7 @@ async def worker_deploy_slot(num: int, request: Request):
 
     # Reload or create slot
     if num in slots:
+        _drop_chat_session_routes(num)
         await slots[num].reload(psid=psid, psidts=psidts)
     else:
         slots[num] = Slot(num=num, psid=psid, psidts=psidts)
@@ -1546,6 +1678,8 @@ async def worker_delete_slot(num: int):
         except Exception:
             pass
     slot.edit_sessions.clear()
+    slot.chat_sessions.clear()
+    _drop_chat_session_routes(num)
 
     env_file = ENVS_DIR / f"account{num}.env"
     if env_file.exists():

@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from gemini_webapi import GeminiClient
 from gemini_webapi.constants import AccountStatus
@@ -19,6 +19,89 @@ logger = logging.getLogger(__name__)
 _SESSION_TTL = 600   # 10 minutes
 _MAX_SESSIONS = 50   # per slot
 _TLS_RESTART_THRESHOLD = 3
+
+
+@dataclass
+class StoredChatSession:
+    """An in-memory Gemini Web chat and the affinity data around it."""
+
+    chat: Any
+    created_at: float
+    last_used_at: float
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+
+
+class ChatSessionStore:
+    """Bounded, TTL-based storage for ChatSession objects.
+
+    A store belongs to exactly one GeminiClient (or worker Slot), so retaining a
+    ChatSession here also pins it to the Google account that created it.
+    """
+
+    def __init__(self, ttl: float = _SESSION_TTL, max_sessions: int = _MAX_SESSIONS):
+        self.ttl = ttl
+        self.max_sessions = max_sessions
+        self.sessions: dict[str, StoredChatSession] = {}
+
+    def clear(self) -> None:
+        self.sessions.clear()
+
+    def cleanup(self, now: float | None = None) -> None:
+        now = time.time() if now is None else now
+        expired = [
+            session_id
+            for session_id, record in self.sessions.items()
+            if now - record.last_used_at > self.ttl and not record.lock.locked()
+        ]
+        for session_id in expired:
+            del self.sessions[session_id]
+        self._evict_to_limit()
+
+    def create(
+        self,
+        session_id: str,
+        factory: Callable[[], Any],
+        now: float | None = None,
+    ) -> StoredChatSession:
+        """Create a fresh session for an explicit bootstrap request."""
+        now = time.time() if now is None else now
+        self.cleanup(now)
+        record = StoredChatSession(chat=factory(), created_at=now, last_used_at=now)
+        self.sessions[session_id] = record
+        self._evict_to_limit()
+        return record
+
+    def get_active(self, session_id: str, now: float | None = None) -> StoredChatSession | None:
+        """Return a live session for an explicit continuation, otherwise None."""
+        now = time.time() if now is None else now
+        record = self.sessions.get(session_id)
+        if record is None:
+            return None
+        # Do not invalidate a stream in progress. The caller will wait on its
+        # per-session lock and then continue the same Gemini conversation.
+        if record.lock.locked() or now - record.last_used_at <= self.ttl:
+            record.last_used_at = now
+            return record
+        del self.sessions[session_id]
+        return None
+
+    def touch(self, record: StoredChatSession, now: float | None = None) -> None:
+        record.last_used_at = time.time() if now is None else now
+
+    def _evict_to_limit(self) -> None:
+        overflow = len(self.sessions) - self.max_sessions
+        if overflow <= 0:
+            return
+        candidates = sorted(
+            (
+                (session_id, record)
+                for session_id, record in self.sessions.items()
+                if not record.lock.locked()
+            ),
+            key=lambda item: item[1].last_used_at,
+        )
+        for session_id, _ in candidates[:overflow]:
+            del self.sessions[session_id]
 
 
 def parse_env_file(path: Path) -> dict[str, str]:
@@ -51,6 +134,7 @@ class Slot:
         "_tls_fail_count": 0,
     })
     edit_sessions: dict[str, Any] = field(default_factory=dict)
+    chat_sessions: ChatSessionStore = field(default_factory=ChatSessionStore)
 
     # ── Factory ──────────────────────────────────────────────────────
 
@@ -113,6 +197,7 @@ class Slot:
             self.psidts = psidts
         self.client = None
         self.edit_sessions.clear()
+        self.chat_sessions.clear()
         self.state.update({
             "auth_status": "unknown",
             "last_error": "",

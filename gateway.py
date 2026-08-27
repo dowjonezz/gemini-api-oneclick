@@ -211,6 +211,9 @@ logs: deque = deque(maxlen=MAX_LOG_ENTRIES)
 _session_routes: dict[str, tuple[int, float]] = {}
 _SESSION_ROUTE_TTL = 600
 _MAX_SESSION_ROUTES = 200
+# Text chat IDs are deliberately isolated from image-edit IDs so the existing
+# image session behaviour and its routing table stay unchanged.
+_chat_session_routes: dict[str, tuple[int, float]] = {}
 account_names: dict[int, str] = {}  # num -> display name, persisted to state/accounts.json
 
 ACCOUNTS_FILE = ROOT_DIR / "state" / "accounts.json"
@@ -269,6 +272,8 @@ TRACE_HEADER_NAMES = (
     "X-OneClick-Model-Resolution",
     "X-OneClick-Endpoint",
     "X-OneClick-Worker-Event-ID",
+    "X-OneClick-Chat-Session-Status",
+    "X-OneClick-Chat-Session-ID",
 )
 
 
@@ -1255,21 +1260,49 @@ async def proxy(request: Request, path: str):
     is_media_req = "images" in path or "videos" in path or is_music_req
     is_image_req = "images" in path or "videos" in path  # img_blocked filtering, music excluded
 
-    # Session affinity: route session_id requests to the container that created them
+    # Session affinity: image requests use their body session_id; opt-in text
+    # continuation uses X-Gemini-Session-ID.  Both must stay on the Google
+    # account/worker slot that created the Gemini Web conversation.
     # Lazy cleanup: purge expired session routes every request (cheap dict scan)
     now = time.time()
-    expired_sids = [k for k, (_, ts) in _session_routes.items() if now - ts > _SESSION_ROUTE_TTL]
+    session_routes = _chat_session_routes if path == "chat/completions" else _session_routes
+    expired_sids = [k for k, (_, ts) in session_routes.items() if now - ts > _SESSION_ROUTE_TTL]
     for k in expired_sids:
-        del _session_routes[k]
+        del session_routes[k]
 
     session_affinity_container = None
+    session_affinity_id = None
+    chat_session_mode = "bootstrap"
     if body_json and "images" in path:
         req_session_id = body_json.get("session_id")
-        if req_session_id and req_session_id in _session_routes:
-            cnum, ts = _session_routes[req_session_id]
-            if cnum in containers and containers[cnum].available:
-                session_affinity_container = containers[cnum]
-                _session_routes[req_session_id] = (cnum, now)
+        session_affinity_id = req_session_id or None
+    elif path == "chat/completions":
+        session_affinity_id = headers.get("x-gemini-session-id") or headers.get("X-Gemini-Session-ID")
+        chat_session_mode = (headers.get("x-gemini-session-mode") or headers.get("X-Gemini-Session-Mode") or "bootstrap").strip().lower()
+        if chat_session_mode not in {"bootstrap", "continue"}:
+            raise HTTPException(status_code=400, detail="X-Gemini-Session-Mode must be bootstrap or continue")
+        if session_affinity_id and chat_session_mode == "continue" and session_affinity_id not in session_routes:
+            # The gateway no longer knows a safe pinned account. Do not send a
+            # tool result to an arbitrary Gemini Web conversation.
+            raise HTTPException(
+                status_code=409,
+                detail="Chat session not found; send a bootstrap request with full context",
+                headers={
+                    "X-OneClick-Chat-Session-Status": "session_not_found",
+                    "X-OneClick-Chat-Session-ID": session_affinity_id,
+                },
+            )
+
+    if session_affinity_id and session_affinity_id in session_routes:
+        cnum, ts = session_routes[session_affinity_id]
+        if cnum in containers and containers[cnum].available:
+            session_affinity_container = containers[cnum]
+            session_routes[session_affinity_id] = (cnum, now)
+        else:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Session is pinned to unavailable container {cnum}; refusing account failover",
+            )
 
     if body_json and "images" in path:
         body_json, body, headers = _build_image_prompt(body_json, headers)
@@ -1289,6 +1322,11 @@ async def proxy(request: Request, path: str):
                              and (not is_image_req or not c.img_blocked))
 
     retries = min(MAX_RETRIES, pool_available)
+    if session_affinity_container:
+        # A retry on a different account would continue a different Gemini Web
+        # conversation. Keep affinity strict; the caller can retry this slot or
+        # start a deliberately new session after the diagnostic TTL expires.
+        retries = 1
     if retries == 0:
         # Check why — initializing, needs_cookie, or genuinely none
         initializing_count = sum(1 for c in containers.values() if not c.healthy and not c.needs_cookie)
@@ -1304,7 +1342,7 @@ async def proxy(request: Request, path: str):
 
     last_error = ""
     for attempt in range(retries):
-        if attempt == 0 and session_affinity_container:
+        if session_affinity_container:
             c = session_affinity_container
         else:
             c = get_next_available(target_group, is_image=is_image_req)
@@ -1361,6 +1399,9 @@ async def proxy(request: Request, path: str):
                 if trace_headers:
                     record_model_truth(c.num, f"/v1/{path}", target_group, resp.headers)
                     trace_headers["Access-Control-Expose-Headers"] = ", ".join(TRACE_HEADER_NAMES)
+
+                if session_affinity_id and resp.status_code < 300:
+                    session_routes[session_affinity_id] = (c.num, time.time())
 
                 # Image requests: buffer response to capture session_id for affinity routing
                 if is_image_req:
