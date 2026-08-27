@@ -101,7 +101,11 @@ def parse_usage_body(part_body: Any) -> dict[str, Any]:
 
 def _extract_usage_body(response_text: str) -> Any:
     """Return the first matching GetUsageInfo body from a batchexecute response."""
-    for part in extract_json_from_response(response_text):
+    try:
+        parts = extract_json_from_response(response_text)
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return None
+    for part in parts:
         if get_nested_value(part, [1]) != USAGE_RPC_ID:
             continue
         body_text = get_nested_value(part, [2])
