@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "app"), str(ROOT / "lib")]
 
 import usage  # noqa: E402
+from gemini_webapi.constants import Headers, MODEL_HEADER_KEY  # noqa: E402
 
 
 class UsageParsingTests(unittest.TestCase):
@@ -40,7 +41,7 @@ class UsageParsingTests(unittest.TestCase):
         parsed = usage.parse_usage_body([1, [[0, 1.37, 1, [[1_788_000_000]]]], False])
         self.assertEqual(parsed["current_5h"]["usage_percentage"], 100)
 
-    def test_request_uses_usage_source_path_and_raw_rpc_id(self):
+    def test_request_uses_usage_source_path_raw_rpc_id_and_batch_headers(self):
         class FakeResponse:
             status_code = 200
             text = ")]}'\n"
@@ -67,10 +68,32 @@ class UsageParsingTests(unittest.TestCase):
         _, kwargs = client.client.calls[0]
         self.assertEqual(kwargs["params"]["rpcids"], usage.USAGE_RPC_ID)
         self.assertEqual(kwargs["params"]["source-path"], "/usage")
+        self.assertEqual(kwargs["params"]["bl"], "build")
+        self.assertEqual(kwargs["params"]["f.sid"], "sid")
+
         payload = json.loads(kwargs["data"]["f.req"])
         self.assertEqual(payload[0][0][0], usage.USAGE_RPC_ID)
         self.assertEqual(payload[0][0][1], "[]")
         self.assertEqual(client._reqid, 112345)
+
+        headers = kwargs["headers"]
+        self.assertEqual(headers["X-Same-Domain"], "1")
+        self.assertEqual(headers["Origin"], Headers.GEMINI.value["Origin"])
+        self.assertEqual(headers["x-goog-ext-73010989-jspb"], "[0]")
+        model_header = json.loads(headers[MODEL_HEADER_KEY])
+        self.assertEqual(model_header[:9], [1, None, None, None, None, None, None, None, [4]])
+        self.assertIsInstance(model_header[-1], str)
+        self.assertTrue(model_header[-1])
+
+    def test_usage_batch_session_header_is_stable_per_client_and_cleared(self):
+        client = object()
+        first = json.loads(usage._batch_headers_for_usage(client)[MODEL_HEADER_KEY])[-1]
+        second = json.loads(usage._batch_headers_for_usage(client)[MODEL_HEADER_KEY])[-1]
+        self.assertEqual(first, second)
+
+        usage.clear_usage_cache(client)
+        third = json.loads(usage._batch_headers_for_usage(client)[MODEL_HEADER_KEY])[-1]
+        self.assertNotEqual(first, third)
 
     def test_cache_prevents_repeated_google_rpc_within_ttl(self):
         client = object()
