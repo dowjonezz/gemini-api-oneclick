@@ -12,6 +12,8 @@ RUN uv sync
 
 COPY app/main.py ./main.py
 COPY app/worker.py ./worker.py
+COPY app/worker_legacy.py ./worker_legacy.py
+COPY app/usage.py ./usage.py
 COPY app/slot.py ./slot.py
 COPY app/raw_capture_tracer.py ./raw_capture_tracer.py
 COPY app/worker_events.py ./worker_events.py
