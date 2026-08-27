@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - feat/ui-usage-dashboard
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Compile Python sources
+        run: uv run python -m compileall -q app lib tests gateway.py gateway_legacy.py
+
+      - name: Run unit tests
+        run: uv run python -m unittest discover -s tests -v
+
+      - name: Validate dashboard JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('web/index.html').read_text(encoding='utf-8')
+          match = re.search(r'<script>(.*)</script>', html, re.S)
+          if not match:
+              raise SystemExit('dashboard script block not found')
+          Path('/tmp/oneclick-dashboard.js').write_text(match.group(1), encoding='utf-8')
+          PY
+          node --check /tmp/oneclick-dashboard.js
+
+      - name: Build worker image
+        run: docker build -t gemini-api-oneclick:ci .
