@@ -36,6 +36,24 @@ jobs:
       - name: Compile Python sources
         run: uv run python -m compileall -q app lib tests gateway.py gateway_legacy.py
 
+      - name: Smoke import entrypoints and routes
+        env:
+          PYTHONPATH: app:lib
+        run: |
+          uv run python - <<'PY'
+          import gateway
+          import worker
+
+          gateway_paths = {route.path for route in gateway.app.routes}
+          worker_paths = {route.path for route in worker.app.routes}
+          for path in ('/', '/api/usage', '/api/usage/{num}', '/legacy'):
+              assert path in gateway_paths, (path, sorted(gateway_paths))
+          for path in ('/slot/{num}/usage', '/worker/usage', '/worker/usage/refresh'):
+              assert path in worker_paths, (path, sorted(worker_paths))
+          print('gateway routes:', len(gateway_paths))
+          print('worker routes:', len(worker_paths))
+          PY
+
       - name: Run unit tests
         run: uv run python -m unittest discover -s tests -v
 
