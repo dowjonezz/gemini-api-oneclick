@@ -1,0 +1,3949 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Шлюз Gemini</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍪</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Outfit:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #FFF6EE;
+  --bg-warm: #FFF0E3;
+  --card: #FFFFFF;
+  --card-hover: #FFF9F5;
+  --primary: #FF8B7E;
+  --primary-light: #FFB5AD;
+  --primary-dark: #E06B5E;
+  --accent: #FFD166;
+  --accent-light: #FFE4A0;
+  --success: #6EC89B;
+  --success-light: #D4F0E1;
+  --danger: #FF7B7B;
+  --danger-light: #FFD4D4;
+  --warn: #FFB347;
+  --warn-light: #FFE4B5;
+  --text: #3D3535;
+  --text-muted: #9E8E8E;
+  --text-light: #C4B0B0;
+  --border: #F0E4DC;
+  --shadow-sm: 0 2px 8px rgba(120, 80, 60, 0.06);
+  --shadow-md: 0 4px 20px rgba(120, 80, 60, 0.08);
+  --shadow-lg: 0 8px 40px rgba(120, 80, 60, 0.12);
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+
+html { font-size: 15px; }
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 15% 25%, rgba(255,139,126,0.06) 0%, transparent 50%),
+    radial-gradient(circle at 85% 75%, rgba(255,209,102,0.06) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(110,200,155,0.04) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* --- LOGIN --- */
+.login-screen {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg); z-index: 1000;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.login-screen.hidden { opacity: 0; transform: scale(1.02); pointer-events: none; }
+
+.login-box {
+  text-align: center; padding: 3rem 2.5rem;
+  background: var(--card); border-radius: 24px;
+  box-shadow: var(--shadow-lg); width: min(400px, 90vw);
+  position: relative; overflow: hidden;
+}
+.login-box::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, var(--primary), var(--accent), var(--success));
+}
+.login-icon { font-size: 3.5rem; margin-bottom: 0.8rem; display: block; animation: float 3s ease-in-out infinite; }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+.login-box h1 { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.6rem; color: var(--text); margin-bottom: 0.3rem; }
+.login-box p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.8rem; }
+
+.login-input {
+  width: 100%; padding: 0.9rem 1.2rem; border: 2px solid var(--border);
+  border-radius: var(--radius-sm); font-family: 'Outfit', sans-serif; font-size: 1rem;
+  outline: none; transition: border-color 0.2s, box-shadow 0.2s; background: var(--bg);
+}
+.login-input:focus { border-color: var(--primary-light); box-shadow: 0 0 0 4px rgba(255,139,126,0.1); }
+.login-input::placeholder { color: var(--text-light); }
+
+.login-btn {
+  width: 100%; margin-top: 1rem; padding: 0.9rem;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white; border: none; border-radius: var(--radius-sm);
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 1rem;
+  cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+}
+.login-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(255,139,126,0.3); }
+.login-btn:active { transform: translateY(0); }
+.login-error { color: var(--danger); font-size: 0.85rem; margin-top: 0.8rem; min-height: 1.2rem; }
+
+/* --- APP --- */
+.app { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 1.5rem; display: none; }
+.app.visible { display: block; animation: fadeUp 0.6s ease; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+/* --- TOPBAR --- */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem;
+  margin-bottom: 1.5rem; padding: 1rem 1.5rem;
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow-sm);
+}
+.topbar-left { display: flex; align-items: center; gap: 0.8rem; }
+.topbar-logo { font-size: 1.8rem; }
+.topbar-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.3rem; }
+.topbar-sub { font-size: 0.8rem; color: var(--text-muted); }
+.topbar-right { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+
+.stat-pill {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.35rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 500;
+}
+.stat-pill.ok { background: var(--success-light); color: #2D7A52; }
+.stat-pill.warn { background: var(--danger-light); color: #B94A4A; }
+.stat-pill.disabled { background: var(--warn-light); color: #92610E; }
+.stat-pill.mode { background: #E8F0FE; color: #2F5FA8; }
+
+.btn-topbar {
+  padding: 0.4rem 0.9rem; border-radius: 10px; border: 2px solid var(--border);
+  background: var(--card); cursor: pointer; display: inline-flex; align-items: center;
+  gap: 0.35rem; font-size: 0.8rem; font-family: 'Outfit', sans-serif; font-weight: 500;
+  color: var(--text-muted); transition: all 0.15s; white-space: nowrap;
+}
+.btn-topbar:hover { border-color: var(--primary-light); background: var(--bg-warm); color: var(--text); }
+.btn-topbar.spinning .icon { display: inline-block; animation: spin 0.8s linear infinite; }
+.btn-topbar .icon { font-size: 0.95rem; line-height: 1; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* --- GRID --- */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+
+/* --- CARD --- */
+.card {
+  background: var(--card); border-radius: var(--radius); padding: 1.2rem;
+  box-shadow: var(--shadow-sm); border: 2px solid transparent;
+  cursor: pointer; transition: all 0.2s ease; position: relative; overflow: hidden;
+}
+.card::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--border); transition: background 0.2s;
+}
+.card.healthy::after { background: linear-gradient(90deg, var(--success), var(--accent)); }
+.card.unhealthy::after { background: linear-gradient(90deg, var(--danger), var(--primary-light)); }
+.card.disabled-card {
+  background: #F3F0ED; opacity: 0.55; filter: grayscale(0.6);
+}
+.card.disabled-card::after { background: var(--text-light); }
+.card.disabled-card:hover { opacity: 0.75; filter: grayscale(0.3); }
+.card.no-cookie::after { background: linear-gradient(90deg, var(--danger), var(--primary-light)); }
+.card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--border); }
+
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; }
+.card-num { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.1rem; color: var(--text); }
+.card-status { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.card-status.green { background: var(--success); box-shadow: 0 0 8px rgba(110,200,155,0.4); }
+.card-status.red { background: var(--danger); box-shadow: 0 0 8px rgba(255,123,123,0.4); animation: pulse 2s ease-in-out infinite; }
+.card-status.yellow { background: var(--warn); }
+.card-status.grey { background: var(--text-light); }
+.card-status.orange { background: var(--warn); box-shadow: 0 0 8px rgba(255,179,71,0.4); }
+.card-status.blue { background: #5B9BD5; box-shadow: 0 0 8px rgba(91,155,213,0.4); animation: pulse 1.5s ease-in-out infinite; }
+.card.img-blocked::after { background: linear-gradient(90deg, var(--warn), var(--accent)); }
+.card.tier-plus.healthy::after { background: linear-gradient(90deg, #5B9BD5, #93CCE8); }
+.card.tier-pro.healthy::after { background: linear-gradient(90deg, #B89AE8, #D0BFF0); }
+.card.tier-ultra.healthy::after { background: linear-gradient(90deg, #C9880E, #E8B830); }
+.card-warn { font-size: 0.7rem; color: var(--warn); background: var(--warn-light); padding: 0.2rem 0.5rem; border-radius: 6px; margin-top: 0.3rem; }
+.card-busy { font-size: 0.7rem; color: #5B9BD5; background: #E8F0FE; padding: 0.2rem 0.5rem; border-radius: 6px; margin-top: 0.3rem; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+.card-meta { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; flex-wrap: wrap; }
+.card-name { font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+.card-port { font-size: 0.7rem; color: var(--text-light); font-family: 'SF Mono', 'Fira Code', monospace; }
+.group-badge {
+  display: inline-block; font-size: 0.68rem; font-weight: 600; padding: 0.1rem 0.5rem;
+  border-radius: 10px; letter-spacing: 0.3px; text-transform: uppercase;
+  font-family: 'Nunito', sans-serif;
+}
+
+.card-preview {
+  font-size: 0.75rem; color: var(--text-light); font-family: 'SF Mono', 'Fira Code', monospace;
+  background: var(--bg); padding: 0.35rem 0.6rem; border-radius: 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card-preview.empty { color: var(--danger); background: var(--danger-light); font-family: 'Outfit', sans-serif; }
+
+.card-stats { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.3rem; display: flex; gap: 0.6rem; }
+.card-stats .stat-item { white-space: nowrap; }
+.card-stats .stat-err { color: var(--danger); }
+.card-error {
+  font-size: 0.7rem; color: var(--danger); background: var(--danger-light);
+  padding: 0.2rem 0.5rem; border-radius: 6px; margin-top: 0.3rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card-actions { margin-top: 0.4rem; display: flex; gap: 0.4rem; justify-content: space-between; }
+.card-btn {
+  font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg); cursor: pointer; font-family: 'Outfit'; transition: all 0.15s;
+}
+.card-btn:hover { background: var(--bg-warm); border-color: var(--primary-light); }
+.card-btn.enable { border-color: var(--success); color: #2D7A52; }
+.card-btn.disable { border-color: var(--danger); color: #B94A4A; }
+.card-btn.test { border-color: #2D9CDB; color: #2D9CDB; }
+.card-btn.restart { border-color: var(--success); color: #2D7A52; }
+.card-btn.testing { opacity: 0.5; pointer-events: none; }
+
+/* --- MODAL --- */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(60, 40, 30, 0.3); backdrop-filter: blur(4px);
+  z-index: 500; display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.25s;
+}
+.modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+.modal {
+  background: var(--card); border-radius: 20px; padding: 2rem;
+  width: min(460px, 92vw); box-shadow: var(--shadow-lg);
+  transform: translateY(20px) scale(0.97); transition: transform 0.3s ease;
+  max-height: 90vh; overflow-y: auto;
+}
+.modal-overlay.active .modal { transform: translateY(0) scale(1); }
+
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+.modal-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.3rem; }
+.modal-close {
+  width: 34px; height: 34px; border-radius: 10px; border: none; background: var(--bg);
+  cursor: pointer; font-size: 1.1rem; display: flex; align-items: center;
+  justify-content: center; transition: background 0.15s;
+}
+.modal-close:hover { background: var(--danger-light); }
+
+.form-group { margin-bottom: 1.2rem; }
+.form-label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--text-muted); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.form-input {
+  width: 100%; padding: 0.8rem 1rem; border: 2px solid var(--border);
+  border-radius: var(--radius-sm); font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.85rem; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+  background: var(--bg); color: var(--text);
+}
+.form-input:focus { border-color: var(--primary-light); box-shadow: 0 0 0 4px rgba(255,139,126,0.08); }
+.form-input::placeholder { color: var(--text-light); }
+.form-input-name { font-family: 'Outfit', sans-serif; font-size: 0.95rem; }
+
+.modal-actions { display: flex; gap: 0.8rem; margin-top: 1.5rem; }
+.btn { flex: 1; padding: 0.85rem; border-radius: var(--radius-sm); border: none; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: all 0.15s; }
+.btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(255,139,126,0.3); }
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+.btn-ghost { background: var(--bg); color: var(--text-muted); border: 2px solid var(--border); }
+.btn-ghost:hover { background: var(--bg-warm); }
+
+.modal-msg { margin-top: 0.8rem; font-size: 0.85rem; min-height: 1.2rem; text-align: center; }
+.modal-msg.ok { color: var(--success); }
+.modal-msg.err { color: var(--danger); }
+
+/* --- LOG PANEL --- */
+/* --- TABS --- */
+.tab-bar {
+  display: flex; gap: 0; margin-bottom: 1.5rem;
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.tab-btn {
+  flex: 1; padding: 0.85rem 1rem; border: none; background: transparent;
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 0.95rem;
+  color: var(--text-muted); cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  position: relative;
+}
+.tab-btn:hover { background: var(--bg-warm); color: var(--text); }
+.tab-btn.active { color: var(--primary-dark); background: var(--bg-warm); }
+.tab-btn.active::after {
+  content: ''; position: absolute; bottom: 0; left: 10%; right: 10%; height: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 3px 3px 0 0;
+}
+.tab-content { display: none; }
+.tab-content.active { display: block; animation: fadeUp 0.3s ease; }
+
+/* --- IMAGE STUDIO --- */
+.studio-section {
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow-sm);
+  padding: 1.2rem; margin-bottom: 1rem;
+}
+.studio-section-title {
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 0.9rem;
+  color: var(--text); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem;
+}
+.studio-label {
+  font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 500;
+}
+.img-grid {
+  display: grid; gap: 0.6rem;
+}
+.img-grid.cols-1 { grid-template-columns: 1fr; }
+.img-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.img-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.img-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+.img-card {
+  position: relative; border-radius: var(--radius-sm); overflow: hidden;
+  box-shadow: var(--shadow-sm); background: var(--bg); transition: transform 0.15s;
+}
+.img-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.img-card img { width: 100%; display: block; cursor: pointer; }
+.img-card-actions {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.6));
+  padding: 1.5rem 0.5rem 0.5rem; display: flex; gap: 0.3rem; justify-content: flex-end;
+  opacity: 0; transition: opacity 0.2s;
+}
+.img-card:hover .img-card-actions { opacity: 1; }
+.img-action-btn {
+  padding: 0.25rem 0.55rem; border-radius: 6px; border: none;
+  font-size: 0.72rem; cursor: pointer; font-family: 'Outfit', sans-serif;
+  transition: all 0.15s; backdrop-filter: blur(4px);
+}
+.img-action-btn.save { background: rgba(110,200,155,0.85); color: #fff; }
+.img-action-btn.save:hover { background: var(--success); }
+.img-action-btn.dl { background: rgba(255,255,255,0.85); color: var(--text); }
+.img-action-btn.dl:hover { background: #fff; }
+.img-action-btn.del { background: rgba(255,123,123,0.85); color: #fff; }
+.img-action-btn.del:hover { background: var(--danger); }
+.img-action-btn.pro { background: rgba(160,120,220,0.85); color: #fff; }
+.img-action-btn.pro:hover { background: rgba(140,90,210,1); }
+.img-action-btn.pro:disabled { opacity: 0.6; cursor: wait; }
+
+.section-toggle {
+  cursor: pointer; user-select: none;
+}
+.section-toggle::before {
+  content: '▼'; display: inline-block; font-size: 0.6rem; margin-right: 0.3rem;
+  transition: transform 0.2s ease; vertical-align: middle;
+}
+.section-toggle.collapsed::before {
+  transform: rotate(-90deg);
+}
+.section-content.collapsed {
+  display: none !important;
+}
+.gallery-empty {
+  text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.88rem;
+}
+.gallery-meta {
+  font-size: 0.7rem; color: var(--text-muted); padding: 0.3rem 0.5rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.batch-bar {
+  display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;
+  padding: 0.5rem 0; font-size: 0.82rem;
+}
+.batch-bar .info { color: var(--text-muted); flex: 1; }
+
+/* Task tabs */
+.task-tab {
+  padding: 0.35rem 0.8rem; font-size: 0.75rem; font-weight: 600; border: none;
+  background: transparent; color: var(--text-muted); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s;
+  font-family: 'Outfit', sans-serif; display: inline-flex; align-items: center; gap: 0.3rem;
+  flex-shrink: 0;
+}
+.task-tab:hover { color: var(--text); }
+.task-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.task-tab .task-status-dot { font-size: 0.6rem; }
+.task-tab .task-close { font-size: 0.85rem; opacity: 0.4; cursor: pointer; margin-left: 0.2rem; }
+.task-tab .task-close:hover { opacity: 1; color: var(--danger); }
+.task-timeline {
+  font-size: 0.72rem; color: var(--text-muted); padding: 0.4rem 0.6rem;
+  background: var(--bg); border-radius: var(--radius-sm); margin-bottom: 0.5rem;
+  border: 1px solid var(--border); line-height: 1.6;
+}
+.task-timeline .tl-step { display: inline; }
+.task-timeline .tl-arrow { color: var(--border); margin: 0 0.3rem; }
+.task-timeline .tl-error { color: var(--danger); }
+.task-timeline .tl-success { color: var(--success); font-weight: 600; }
+.task-timeline .tl-trying { color: var(--primary); }
+@keyframes taskPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+/* Optimize prompt bubbles */
+.opt-bubble {
+  width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--border);
+  background: var(--surface); font-size: 1rem; cursor: pointer; display: flex;
+  align-items: center; justify-content: center; transition: all 0.15s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.opt-bubble:hover { transform: scale(1.15); border-color: var(--primary); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+@keyframes bubblePop {
+  0% { opacity: 0; transform: scale(0.3); }
+  70% { transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+/* Image Studio chips */
+.img-chip {
+  padding: 0.22rem 0.5rem; border: 1.5px solid var(--border); border-radius: 14px;
+  background: var(--bg); font-family: 'Outfit', sans-serif; font-size: 0.72rem;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap; color: var(--text-muted);
+  flex-shrink: 0;
+}
+.img-chip:hover { border-color: var(--primary-light); background: var(--card); }
+.img-chip.active { border-color: var(--primary); background: var(--primary); color: #fff; }
+.img-chip.ratio { min-width: 42px; text-align: center; font-size: 0.7rem; }
+.img-model-sel { min-width: 180px; }
+.img-select {
+  padding: 0.35rem 0.5rem; border: 2px solid var(--border); border-radius: var(--radius-sm);
+  font-family: 'Outfit', sans-serif; font-size: 0.8rem; background: var(--bg); color: var(--text);
+}
+.dim-chip {
+  padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.7rem;
+  border: 1.5px solid var(--border); background: var(--bg); cursor: pointer;
+  transition: all 0.15s; font-family: 'Outfit', sans-serif; color: var(--text-muted);
+  display: inline-flex; align-items: center; gap: 0.2rem;
+}
+.dim-chip:hover { border-color: var(--accent); background: var(--card); }
+.dim-chip.active { border-color: var(--accent); background: var(--accent-light); color: #92610E; }
+.dim-chip .dim-label { font-weight: 600; }
+.style-tpl-card {
+  padding: 0.4rem 0.6rem; border-radius: 10px; flex-shrink: 0;
+  background: var(--bg); border: 1.5px solid var(--border); transition: all 0.15s;
+  min-width: 110px; max-width: 160px;
+}
+.style-tpl-card:hover { border-color: var(--primary-light); }
+.style-tpl-header {
+  display: flex; align-items: center; justify-content: space-between; cursor: pointer;
+  font-size: 0.75rem; font-weight: 600; font-family: 'Nunito', sans-serif;
+}
+.style-tpl-dims { display: flex; flex-wrap: wrap; gap: 0.2rem; margin-top: 0.3rem; }
+.img-history-item {
+  padding: 0.5rem; margin-bottom: 0.3rem; border-radius: var(--radius-sm);
+  cursor: pointer; transition: background 0.15s;
+}
+.img-history-item:hover { background: var(--bg-warm); }
+
+.log-panel {
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow-sm);
+  overflow: hidden; margin-bottom: 1.5rem;
+}
+.log-toggle {
+  padding: 0.8rem 1.2rem; cursor: pointer; display: flex; align-items: center;
+  justify-content: space-between; user-select: none;
+}
+.log-toggle:hover { background: var(--bg-warm); }
+.log-header {
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 0.95rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.log-arrow { transition: transform 0.2s; font-size: 0.8rem; color: var(--text-muted); }
+.log-arrow.open { transform: rotate(180deg); }
+.log-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+.log-body.open { max-height: 350px; overflow-y: auto; }
+.log-list { padding: 0 1.2rem 0.8rem; }
+.log-entry {
+  font-size: 0.78rem; font-family: 'SF Mono', 'Fira Code', monospace;
+  padding: 0.2rem 0; border-bottom: 1px solid var(--bg); line-height: 1.5;
+}
+.log-entry .time { color: var(--text-light); margin-right: 0.5rem; }
+.log-entry .cnum { color: var(--primary); font-weight: 600; margin-right: 0.4rem; }
+.log-entry.error { color: var(--danger); }
+.log-entry.warn { color: var(--warn); }
+.log-entry.info { color: var(--text-muted); }
+
+/* --- TOAST --- */
+.toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 999; display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-end; }
+.toast { padding: 0.7rem 1.2rem; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 500; box-shadow: var(--shadow-md); animation: slideIn 0.3s ease; max-width: 320px; }
+.toast.ok { background: var(--success-light); color: #2D7A52; }
+.toast.err { background: var(--danger-light); color: #B94A4A; }
+.toast.info { background: #E8F0FE; color: #3566A5; }
+@keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+@media (max-width: 640px) {
+  .topbar { flex-direction: column; gap: 0.8rem; text-align: center; }
+  .topbar-right { justify-content: center; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.8rem; }
+  .card { padding: 1rem; }
+  .modal { padding: 1.5rem; }
+  .studio-section { overflow: hidden; }
+  .img-model-sel { flex: 1 1 100% !important; min-width: 0 !important; }
+  .img-ctrl-row > div:last-child { flex: 1 1 100%; }
+  /* Mobile: gallery 2 columns instead of 4 */
+  .img-grid.cols-4 { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* --- GUARD SETTINGS MODAL --- */
+.guard-section { margin-bottom: 1.2rem; }
+.guard-section-title {
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 0.9rem;
+  color: var(--text); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;
+}
+
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.7rem 1rem; background: var(--bg); border-radius: var(--radius-sm); margin-bottom: 0.8rem;
+}
+.toggle-label { font-size: 0.9rem; font-weight: 500; }
+.toggle-desc { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
+
+.toggle-switch {
+  position: relative; width: 48px; height: 26px; cursor: pointer;
+}
+.toggle-switch input { display: none; }
+.toggle-track {
+  position: absolute; inset: 0; background: var(--border); border-radius: 13px;
+  transition: background 0.2s;
+}
+.toggle-switch input:checked + .toggle-track { background: var(--success); }
+.toggle-knob {
+  position: absolute; top: 3px; left: 3px; width: 20px; height: 20px;
+  background: white; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  transition: transform 0.2s;
+}
+.toggle-switch input:checked ~ .toggle-knob { transform: translateX(22px); }
+
+.tag-input-area {
+  display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0.6rem 0.8rem;
+  background: var(--bg); border: 2px solid var(--border); border-radius: var(--radius-sm);
+  min-height: 44px; align-items: center; cursor: text; transition: border-color 0.2s;
+}
+.tag-input-area:focus-within { border-color: var(--primary-light); }
+
+.tag {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.25rem 0.6rem; background: var(--card); border: 1px solid var(--border);
+  border-radius: 6px; font-size: 0.8rem; font-family: 'SF Mono', 'Fira Code', monospace;
+  white-space: nowrap;
+}
+.tag.code { background: #EDE9FE; border-color: #C4B5FD; color: #5B21B6; }
+.tag.keyword { background: #FEF3C7; border-color: #FCD34D; color: #92400E; }
+.tag-remove {
+  cursor: pointer; font-size: 0.7rem; color: var(--text-light); line-height: 1;
+  padding: 0 0.1rem; border-radius: 3px;
+}
+.tag-remove:hover { color: var(--danger); background: var(--danger-light); }
+
+.tag-new-input {
+  border: none; outline: none; background: transparent;
+  font-family: 'Outfit', sans-serif; font-size: 0.85rem; color: var(--text);
+  min-width: 80px; flex: 1;
+}
+.tag-new-input::placeholder { color: var(--text-light); }
+
+.model-chips {
+  display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0.5rem 0;
+  max-height: 4.2rem; overflow: hidden; transition: max-height 0.3s ease;
+  position: relative;
+}
+.model-chips.expanded { max-height: none; }
+.model-chip {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.25rem 0.65rem; border-radius: 999px; font-size: 0.78rem;
+  background: var(--card-bg); border: 1.5px solid var(--border);
+  color: var(--text); font-family: 'Outfit', sans-serif;
+}
+.model-chip::before {
+  content: '🍪'; font-size: 0.7rem;
+}
+.model-chip-empty {
+  font-size: 0.8rem; color: var(--text-muted); padding: 0.3rem 0;
+}
+.model-toggle {
+  display: none; width: 100%; text-align: center; padding: 0.2rem 0;
+  font-size: 0.75rem; color: var(--primary); cursor: pointer;
+  font-family: 'Outfit', sans-serif;
+}
+.model-toggle:hover { text-decoration: underline; }
+.model-toggle.visible { display: block; }
+.model-slot-list {
+  display: grid; gap: 0.55rem; margin-top: 0.5rem;
+}
+.model-slot-row {
+  display: grid; grid-template-columns: 88px 1fr auto; gap: 0.5rem;
+  align-items: center;
+}
+.model-slot-label {
+  font-size: 0.78rem; color: var(--text-muted); font-weight: 700;
+}
+.model-slot-select {
+  min-width: 0; width: 100%;
+  padding: 0.45rem 0.6rem; border: 2px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text); font-family: 'Outfit', sans-serif; font-size: 0.8rem;
+}
+.model-slot-source {
+  font-size: 0.72rem; color: var(--text-light); min-width: 32px; text-align: right;
+}
+.truth-list {
+  display: grid; gap: 0.45rem; margin-top: 0.55rem;
+}
+.truth-row {
+  padding: 0.55rem 0.7rem; border-radius: 10px; background: var(--bg);
+  border: 1px solid var(--border);
+}
+.truth-top {
+  display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;
+  font-size: 0.76rem; margin-bottom: 0.25rem;
+}
+.truth-endpoint {
+  display: inline-flex; align-items: center; padding: 0.1rem 0.45rem; border-radius: 999px;
+  background: var(--primary-light); color: var(--primary); font-weight: 700;
+}
+.truth-token {
+  font-family: 'SF Mono', 'Fira Code', monospace; color: var(--text-muted);
+}
+.truth-main {
+  font-size: 0.82rem; color: var(--text); line-height: 1.45;
+}
+.truth-meta {
+  font-size: 0.72rem; color: var(--text-light); margin-top: 0.25rem;
+}
+
+.guard-hint {
+  font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem; line-height: 1.4;
+}
+
+.threshold-input {
+  width: 60px; padding: 0.4rem 0.6rem; border: 2px solid var(--border);
+  border-radius: 8px; font-family: 'Outfit', sans-serif; font-size: 0.9rem;
+  text-align: center; outline: none; background: var(--bg);
+  transition: border-color 0.2s;
+}
+.threshold-input:focus { border-color: var(--primary-light); }
+
+/* --- GROUP MANAGER --- */
+.group-def-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.6rem 0.8rem; background: var(--bg); border-radius: 8px;
+  margin-bottom: 0.4rem;
+}
+.group-def-name {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 0.95rem;
+}
+.group-def-count { font-size: 0.78rem; color: var(--text-muted); font-weight: 400; }
+.group-def-del {
+  padding: 0.2rem 0.5rem; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--card); cursor: pointer; font-size: 0.72rem; color: var(--danger);
+  font-family: 'Outfit', sans-serif; transition: all 0.15s; white-space: nowrap;
+}
+.group-def-del:hover { background: var(--danger-light); border-color: var(--danger); }
+.group-def-actions { display: flex; gap: 0.3rem; }
+.group-def-btn {
+  padding: 0.2rem 0.5rem; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--card); cursor: pointer; font-size: 0.72rem; color: var(--text-muted);
+  font-family: 'Outfit', sans-serif; transition: all 0.15s; white-space: nowrap;
+}
+.group-def-btn:hover { background: var(--bg-warm); border-color: var(--primary-light); color: var(--text); }
+
+.gm-picker {
+  display: flex; flex-direction: column; gap: 0.3rem;
+  max-height: 320px; overflow-y: auto; padding: 0.5rem;
+  background: var(--bg); border: 2px solid var(--border); border-radius: var(--radius-sm);
+}
+.gm-pick-item {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.5rem 0.7rem; border-radius: 8px; cursor: pointer;
+  transition: all 0.15s; user-select: none; border: 2px solid transparent;
+}
+.gm-pick-item:hover { background: var(--bg-warm); }
+.gm-pick-item.picked { background: rgba(255,139,126,0.12); border-color: var(--primary); }
+.gm-pick-item.other-group { opacity: 0.45; }
+.gm-pick-num { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 0.85rem; min-width: 32px; }
+.gm-pick-name { font-size: 0.82rem; color: var(--text-muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gm-pick-port { font-size: 0.72rem; color: var(--text-light); font-family: 'SF Mono', monospace; }
+.gm-pick-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.gm-pick-check {
+  width: 18px; height: 18px; border-radius: 5px; border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: white; flex-shrink: 0;
+}
+.gm-pick-item.picked .gm-pick-check { background: var(--primary); border-color: var(--primary); }
+.gm-section-title {
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 0.85rem;
+  color: var(--text-muted); margin: 0.8rem 0 0.4rem; display: flex; align-items: center; gap: 0.5rem;
+}
+.gm-back-btn {
+  font-size: 0.85rem; color: var(--primary); cursor: pointer; font-weight: 600;
+  background: none; border: none; font-family: 'Outfit', sans-serif; padding: 0;
+}
+.gm-back-btn:hover { text-decoration: underline; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-light); }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <span class="login-icon">&#x26A1;</span>
+    <h1>Шлюз Gemini</h1>
+    <p>Gemini API OneClick</p>
+    <form onsubmit="doLogin();return false;" autocomplete="on">
+      <input type="text" name="username" value="admin" autocomplete="username" style="position:absolute;opacity:0;height:0;pointer-events:none" tabindex="-1">
+      <input type="password" class="login-input" id="loginPwd" name="password" placeholder="Введите пароль" autocomplete="current-password">
+      <button type="submit" class="login-btn" id="loginBtn">Войти</button>
+    </form>
+    <div class="login-error" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-logo">&#x26A1;</span>
+      <div>
+        <div class="topbar-title">Шлюз Gemini</div>
+        <div class="topbar-sub" id="topbarSub">Gemini API OneClick v2.0.0</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="stat-pill mode" id="modePill" style="display:none">Режим неизвестен</span>
+      <span class="stat-pill ok" id="statOk">0 в норме</span>
+      <span class="stat-pill warn" id="statBad">0 с ошибкой</span>
+      <span class="stat-pill disabled" id="statOff">0 отключено</span>
+      <button class="btn-topbar" onclick="openGroupManager()"><span class="icon">&#x1F3F7;</span> Группы</button>
+      <button class="btn-topbar" id="refreshBtn" onclick="doRefresh()"><span class="icon">&#x21BB;</span> Обновить</button>
+      <button class="btn-topbar" onclick="openGuardSettings()"><span class="icon">&#x2699;</span> Настройки</button>
+      <button class="btn-topbar" onclick="doLogout()"><span class="icon">&#x2192;</span> Выйти</button>
+    </div>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('manage')" id="tabManage">🍪 Контейнеры</button>
+    <button class="tab-btn" onclick="switchTab('studio')" id="tabStudio">🎨 Студия медиа</button>
+  </div>
+
+  <!-- Tab 1: Container Management -->
+  <div class="tab-content active" id="tabContentManage">
+    <div class="grid" id="grid"></div>
+    <div class="log-panel">
+      <div class="log-toggle" onclick="toggleLogs()">
+        <div class="log-header">&#x1F4CB; Журнал шлюза</div>
+        <span class="log-arrow" id="logArrow">&#x25BC;</span>
+      </div>
+      <div class="log-body" id="logBody">
+        <div class="log-list" id="logList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 2: Image Studio -->
+  <div class="tab-content" id="tabContentStudio">
+    <!-- Zone 1: Tool Area -->
+    <div class="studio-section">
+      <div class="studio-section-title">
+        <span>✨ Настройки генерации</span>
+      </div>
+      <!-- Prompt -->
+      <div style="margin-bottom:0.8rem">
+        <textarea id="imgPrompt" rows="3" placeholder="Опишите желаемую сцену, например: рыжий кот греется на подоконнике, а за окном цветёт сакура&#10;&#10;Shift+Enter — новая строка, Enter — создать" style="width:100%;padding:0.6rem 0.8rem;border:2px solid var(--border);border-radius:var(--radius-sm);font-family:'Outfit',sans-serif;font-size:0.88rem;resize:vertical;line-height:1.5" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();doImgGen()}"></textarea>
+      </div>
+      <!-- Negative prompt with presets -->
+      <details style="margin-bottom:0.8rem">
+        <summary style="cursor:pointer;font-size:0.8rem;color:var(--text-muted);user-select:none">Исключить из результата (негативный промпт)</summary>
+        <div id="negPresets" style="display:flex;flex-wrap:wrap;gap:0.3rem;margin-top:0.4rem"></div>
+        <input type="text" id="imgNeg" placeholder="Свои исключения" style="width:100%;margin-top:0.4rem;padding:0.4rem 0.8rem;border:2px solid var(--border);border-radius:var(--radius-sm);font-family:'Outfit',sans-serif;font-size:0.82rem">
+      </details>
+      <!-- Style: three panels with toggle buttons -->
+      <div style="margin-bottom:0.6rem">
+        <div style="display:flex;gap:0.3rem;margin-bottom:0.4rem">
+          <button class="style-tab-btn" id="styleTabImg" onclick="toggleStylePanel('img')" style="flex:1;padding:0.35rem 0;font-size:0.78rem;font-weight:600;border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--surface);transition:all 0.2s">🎨 Стиль изображения</button>
+          <button class="style-tab-btn" id="styleTabVid" onclick="toggleStylePanel('vid')" style="flex:1;padding:0.35rem 0;font-size:0.78rem;font-weight:600;border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--surface);transition:all 0.2s">🎬 Стиль видео</button>
+          <button class="style-tab-btn" id="styleTabMusic" onclick="toggleStylePanel('music')" style="flex:1;padding:0.35rem 0;font-size:0.78rem;font-weight:600;border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--surface);transition:all 0.2s">🎵 Стиль музыки</button>
+        </div>
+        <div id="stylePanelImg" style="display:none">
+          <div id="imgStyles" style="display:flex;flex-wrap:wrap;gap:0.3rem;padding-bottom:0.3rem"></div>
+        </div>
+        <div id="stylePanelVid" style="display:none">
+          <div id="vidStyles" style="display:flex;flex-wrap:wrap;gap:0.3rem;padding-bottom:0.3rem"></div>
+        </div>
+        <div id="stylePanelMusic" style="display:none">
+          <div id="musicStyles" style="display:flex;flex-wrap:wrap;gap:0.3rem;padding-bottom:0.3rem"></div>
+        </div>
+      </div>
+      <!-- Custom templates (compact inline) -->
+      <div id="styleTemplateZone" style="margin-bottom:0.6rem;display:none">
+        <div class="studio-label" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem">
+          <span>🎭 Шаблоны</span>
+          <span id="styleTemplateCount" style="font-size:0.68rem;color:var(--text-light)"></span>
+        </div>
+        <div id="styleTemplates" style="display:flex;gap:0.4rem;overflow-x:auto;padding-bottom:0.2rem"></div>
+        <div id="styleDimActive" style="display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.3rem"></div>
+      </div>
+      <!-- Row 1: 比例 + 模型 + 质量 + 数量 -->
+      <!-- 比例 + 模型选择 -->
+      <div class="img-ctrl-row" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.6rem;flex-wrap:wrap">
+        <div class="studio-label" style="margin:0;flex-shrink:0">Формат</div>
+        <div id="imgRatios" style="display:flex;gap:0.25rem"></div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap">
+          <span style="font-size:0.72rem;color:var(--text-muted);flex-shrink:0">Промпт</span>
+          <select id="imgOptModel" class="img-select img-model-sel" style="font-size:0.78rem"></select>
+          <span style="font-size:0.72rem;color:var(--text-muted);flex-shrink:0">Изображение</span>
+          <select id="imgModel" class="img-select img-model-sel" style="font-size:0.78rem"></select>
+          <select id="imgQuality" class="img-select" style="padding:0.3rem 0.5rem;font-size:0.78rem;flex-shrink:0"><option value="standard">Стандарт</option><option value="hd">HD</option></select>
+        </div>
+      </div>
+      <!-- Row 3: Image area (upload + edit) left, buttons right -->
+      <div>
+        <div class="studio-label" style="margin-bottom:0.3rem">Материал (перетащите изображение, видео или аудио)</div>
+        <div id="imgEditRow" style="display:flex;gap:1.2rem;align-items:flex-start">
+          <!-- Left: Image display + edit zone -->
+          <div style="flex:1 1 0;min-width:0">
+            <div id="imgUploadArea" style="border:2px dashed var(--border);border-radius:var(--radius-sm);padding:0.8rem;cursor:pointer;transition:all 0.2s;font-size:0.82rem;color:var(--text-muted);display:flex;align-items:center;justify-content:center" onclick="if(!uploadedImageB64)document.getElementById('imgFileInput').click()" ondragover="event.preventDefault();this.style.borderColor='var(--primary)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="event.preventDefault();this.style.borderColor='var(--border)';handleImageDrop(event)">
+              <div id="imgUploadEmpty" style="text-align:center;padding:1rem">
+                <div style="font-size:1.5rem;margin-bottom:0.3rem">🖼️</div>
+                <div>Перетащите или нажмите для загрузки изображения, видео или аудио</div>
+                <div style="font-size:0.72rem;margin-top:0.2rem">Можно перетаскивать из галереи; поддерживаются все типы медиа</div>
+              </div>
+              <div id="imgUploadPreview" style="display:none;width:100%">
+                <img id="imgPreviewImg" style="width:100%;max-height:500px;border-radius:6px;object-fit:contain;display:block">
+                <div id="imgFileInfo" style="font-size:0.72rem;color:var(--text-muted);margin-top:0.4rem;text-align:center"></div>
+                <div id="editSessionInfo" style="display:none;font-size:0.72rem;color:var(--success);text-align:center;margin-top:0.2rem">🔗 Сеанс редактирования активен — продолжайте вводить команды</div>
+              </div>
+            </div>
+            <input type="file" id="imgFileInput" accept="image/*,video/*,audio/*" style="display:none" onchange="handleImageSelect(this)">
+          </div>
+          <!-- Right: Action buttons — switch between Create and Edit menus -->
+          <div id="imgBtnCol" style="flex:0 0 120px;display:flex;flex-direction:column;gap:0.4rem">
+            <!-- ═══ Create menu (no material) ═══ -->
+            <div id="menuCreate">
+              <div style="font-size:0.68rem;color:var(--text-light);text-align:center;margin-bottom:0.3rem;font-weight:600">✨ Создание</div>
+              <div style="display:flex;flex-direction:column;gap:0.4rem">
+                <button class="btn btn-primary" id="imgGenBtn" onclick="doImgGen()" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center">🎨 Создать изображение</button>
+                <button class="btn btn-primary" id="vidGenBtn" onclick="doVidGen()" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center;background:linear-gradient(135deg,#6366f1,#8b5cf6)">🎬 Создать видео</button>
+                <button class="btn btn-primary" id="musicGenBtn" onclick="doMusicGen()" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center;background:linear-gradient(135deg,#f59e0b,#ef4444)">🎵 Создать музыку</button>
+                <button class="btn btn-ghost" onclick="optimizePrompt(this)" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--border);border-radius:var(--radius-sm);white-space:nowrap;text-align:center">✨ Улучшить промпт</button>
+              </div>
+            </div>
+            <!-- ═══ Edit menu (has material) ═══ -->
+            <div id="menuEdit" style="display:none">
+              <div style="font-size:0.68rem;color:var(--text-light);text-align:center;margin-bottom:0.3rem;font-weight:600">✏️ Редактирование · преобразование</div>
+              <div style="display:flex;flex-direction:column;gap:0.4rem">
+                <button class="btn btn-primary" onclick="doEditTo('image')" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center">🎨 → изображение</button>
+                <button class="btn btn-primary" onclick="doEditTo('video')" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center;background:linear-gradient(135deg,#6366f1,#8b5cf6)">🎬 → видео</button>
+                <button class="btn btn-primary" onclick="doEditTo('music')" style="width:100%;padding:0.4rem 0;font-size:0.8rem;font-weight:700;white-space:nowrap;border-radius:var(--radius-sm);text-align:center;background:linear-gradient(135deg,#f59e0b,#ef4444)">🎵 → музыку</button>
+                <div style="border-top:1px solid var(--border);margin:0.1rem 0"></div>
+                <button class="btn btn-ghost" id="analyzeBtn" onclick="analyzeStyle()" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--accent-light);border-radius:var(--radius-sm);white-space:nowrap;color:#92610E;background:var(--accent-light);text-align:center">🔍 Анализ стиля</button>
+                <button class="btn btn-ghost" id="saveMediaBtn" onclick="saveUploadedToGallery()" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--success-light);border-radius:var(--radius-sm);white-space:nowrap;color:var(--success);text-align:center">💾 Сохранить</button>
+                <button class="btn btn-ghost" onclick="clearUploadImage()" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--danger-light);border-radius:var(--radius-sm);white-space:nowrap;color:var(--danger);text-align:center">✕ Удалить материал</button>
+                <button class="btn btn-ghost" onclick="optimizePrompt(this)" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--border);border-radius:var(--radius-sm);white-space:nowrap;text-align:center">✨ Улучшить промпт</button>
+              </div>
+            </div>
+            <button class="btn btn-ghost" id="imgCancelBtn" onclick="cancelImgRequest()" style="width:100%;padding:0.4rem 0;font-size:0.74rem;font-weight:600;border:2px solid var(--text-light);border-radius:var(--radius-sm);white-space:nowrap;color:var(--text-muted);text-align:center;display:none">⏹ Отменить</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Zone 2: Dynamic Task Results -->
+    <div class="studio-section" id="resultZone" style="display:none">
+      <div id="taskTabBar" style="display:flex;align-items:center;gap:0;margin-bottom:0.5rem;border-bottom:2px solid var(--border);overflow-x:auto;white-space:nowrap"></div>
+      <div id="taskPanels"></div>
+    </div>
+
+    <!-- Zone 3: Project Gallery -->
+    <div class="studio-section">
+      <div class="studio-section-title" style="justify-content:space-between">
+        <span class="section-toggle" onclick="toggleSection('gallery_collapsed','galleryContent')">🖼️ Галерея проекта</span>
+        <span id="galleryCount" style="font-size:0.78rem;color:var(--text-muted);font-weight:400"></span>
+      </div>
+      <div id="galleryContent">
+        <div id="galleryGrid" class="img-grid cols-4"></div>
+        <div id="galleryEmpty" class="gallery-empty">Сохранённых изображений пока нет</div>
+        <div id="galleryMore" style="text-align:center;padding:0.6rem;display:none">
+          <button class="img-action-btn dl" onclick="loadMoreGallery()" style="padding:0.4rem 1.2rem">Загрузить ещё</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Zone 4: Video Gallery -->
+    <div class="studio-section">
+      <div class="studio-section-title" style="justify-content:space-between">
+        <span class="section-toggle" onclick="toggleSection('vidgallery_collapsed','vidGalleryContent')">🎬 Видеотека</span>
+        <span id="vidGalleryCount" style="font-size:0.78rem;color:var(--text-muted);font-weight:400"></span>
+      </div>
+      <div id="vidGalleryContent">
+        <div id="vidGalleryGrid" class="img-grid cols-4"></div>
+        <div id="vidGalleryEmpty" class="gallery-empty">Сохранённых видео пока нет</div>
+        <div id="vidGalleryMore" style="text-align:center;padding:0.6rem;display:none">
+          <button class="img-action-btn dl" onclick="loadMoreVideoGallery()" style="padding:0.4rem 1.2rem">Загрузить ещё</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Zone 5: Audio Gallery -->
+    <div class="studio-section">
+      <div class="studio-section-title" style="justify-content:space-between">
+        <span class="section-toggle" onclick="toggleSection('audiogallery_collapsed','audioGalleryContent')">🎵 音频库</span>
+        <span id="audioGalleryCount" style="font-size:0.78rem;color:var(--text-muted);font-weight:400"></span>
+      </div>
+      <div id="audioGalleryContent">
+        <div id="audioGalleryGrid" class="img-grid cols-4"></div>
+        <div id="audioGalleryEmpty" class="gallery-empty">还没有保存的音频</div>
+        <div id="audioGalleryMore" style="text-align:center;padding:0.6rem;display:none">
+          <button class="img-action-btn dl" onclick="loadMoreAudioGallery()" style="padding:0.4rem 1.2rem">加载更多</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DEPLOY MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="event.target===this&&closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">#1</div>
+      <button class="modal-close" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">账号名称</label>
+      <input type="text" class="form-input form-input-name" id="mName" placeholder="可选别名">
+    </div>
+    <div class="form-group">
+      <label class="form-label">所属分组</label>
+      <select class="form-input form-input-name" id="mGroup" style="font-family:'Outfit',sans-serif;font-size:0.95rem">
+        <option value="">默认分组</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">SECURE_1PSID</label>
+      <input type="text" class="form-input" id="mPsid" placeholder="粘贴 cookie 值" spellcheck="false">
+    </div>
+    <div class="form-group">
+      <label class="form-label">SECURE_1PSIDTS</label>
+      <input type="text" class="form-input" id="mPsidts" placeholder="粘贴 cookie 值" spellcheck="false">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" id="deployBtn" onclick="doDeploy()">部署</button>
+    </div>
+    <div class="modal-msg" id="modalMsg"></div>
+    <!-- Container Logs -->
+    <div style="margin-top:1rem">
+      <div class="log-toggle" onclick="toggleContainerLog()">
+        <div class="log-header" style="font-size:0.85rem">容器日志</div>
+        <span class="log-arrow" id="cLogArrow">&#x25BC;</span>
+      </div>
+      <div class="log-body" id="cLogBody">
+        <div class="log-list" id="cLogList" style="font-size:0.72rem"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- GUARD SETTINGS MODAL -->
+<div class="modal-overlay" id="guardOverlay" onclick="event.target===this&&closeGuardSettings()">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">&#x1F6E1; Channel Guard</div>
+      <button class="modal-close" onclick="closeGuardSettings()">&#x2715;</button>
+    </div>
+
+    <div class="guard-section">
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">自动禁用</div>
+          <div class="toggle-desc">达到阈值后自动禁用容器</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="guardAutoDisable">
+          <span class="toggle-track"></span>
+          <span class="toggle-knob"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">错误阈值</div>
+          <div class="toggle-desc">连续多少次匹配错误后禁用</div>
+        </div>
+        <input type="number" class="threshold-input" id="guardThreshold" min="1" max="99" value="3">
+      </div>
+    </div>
+
+    <div class="guard-section">
+      <div class="guard-section-title">触发禁用的状态码</div>
+      <div class="tag-input-area" id="codesArea" onclick="this.querySelector('input').focus()">
+        <input type="text" class="tag-new-input" id="codesInput" placeholder="输入状态码 (如 503) + 回车">
+      </div>
+      <div class="guard-hint">仅这些 HTTP 状态码会触发计数。留空则忽略状态码。</div>
+    </div>
+
+    <div class="guard-section">
+      <div class="guard-section-title">触发禁用的关键词</div>
+      <div class="tag-input-area" id="keywordsArea" onclick="this.querySelector('input').focus()">
+        <input type="text" class="tag-new-input" id="keywordsInput" placeholder="输入关键词 + 回车">
+      </div>
+      <div class="guard-hint">错误信息包含这些关键词时触发计数。不区分大小写。</div>
+    </div>
+
+    <div class="guard-section">
+      <div class="guard-section-title" style="justify-content:space-between">
+        模型列表
+        <button class="btn btn-primary" onclick="refreshModels()" style="padding:0.25rem 0.8rem;font-size:0.78rem">刷新</button>
+      </div>
+      <div class="model-chips" id="modelChips">
+        <span class="model-chip-empty">点击刷新获取模型列表</span>
+      </div>
+      <div class="model-toggle" id="modelToggle" onclick="toggleModelChips()">展开全部</div>
+    </div>
+
+    <div class="guard-section">
+      <div class="guard-section-title" style="justify-content:space-between">
+        模型槽位
+        <button class="btn btn-primary" onclick="saveModelProfiles()" style="padding:0.25rem 0.8rem;font-size:0.78rem">保存槽位</button>
+      </div>
+      <div id="modelSlotList" class="model-slot-list">
+        <div class="model-chip-empty">加载中...</div>
+      </div>
+      <div class="guard-hint">这里保存稳定槽位。Gemini 运行时模型名变化后，系统会优先保留人工选择，失效时再自动回退。</div>
+    </div>
+
+    <div class="guard-section">
+      <div class="guard-section-title">模型真相</div>
+      <div id="modelTruthList" class="truth-list">
+        <div class="model-chip-empty">暂无请求记录</div>
+      </div>
+      <div class="guard-hint">显示最近请求的模型映射记录：请求模型 → 实际 header 家族和 token。</div>
+    </div>
+
+    <div class="guard-section">
+      <div class="guard-section-title" style="justify-content:space-between">
+        Gateway 监听地址
+        <button class="btn btn-primary" id="netSaveBtn" onclick="saveNetworkSettings()" style="padding:0.25rem 0.8rem;font-size:0.78rem">保存</button>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">绑定网卡 IP</div>
+          <div class="toggle-desc">0.0.0.0 = 所有网卡（docker 消费者/同机服务能访问，需防火墙保护端口）· 127.0.0.1 = 仅本机回环（需反代）· 或填内网 IP</div>
+        </div>
+        <input type="text" class="threshold-input" id="netGatewayHost" placeholder="0.0.0.0" style="width:9rem">
+      </div>
+      <div class="guard-hint" id="netRuntimeHint" style="margin-top:0.5rem"></div>
+      <div class="modal-msg" id="netMsg" style="margin-top:0.4rem"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeGuardSettings()">取消</button>
+      <button class="btn btn-primary" id="guardSaveBtn" onclick="saveGuardSettings()">保存</button>
+    </div>
+    <div class="modal-msg" id="guardMsg"></div>
+  </div>
+</div>
+
+<!-- ERROR HISTORY MODAL -->
+<div class="modal-overlay" id="errHistOverlay" onclick="event.target===this&&closeErrorHistory()">
+  <div class="modal" style="width:min(720px,94vw);max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title" id="errHistTitle">错误明细</div>
+      <button class="modal-close" onclick="closeErrorHistory()">&#x2715;</button>
+    </div>
+    <div id="errHistBody" style="overflow-y:auto;flex:1;border:1px solid var(--border);border-radius:6px;background:var(--bg-soft)"></div>
+    <div style="margin-top:8px;font-size:11px;color:var(--text-muted)">完整日志：VPS <code>/tmp/gateway-errors.log</code>（append-only，gateway 重启不清）</div>
+  </div>
+</div>
+
+<!-- GROUP MANAGER MODAL -->
+<div class="modal-overlay" id="groupMgrOverlay" onclick="event.target===this&&closeGroupManager()">
+  <div class="modal" style="width:min(520px,92vw)">
+    <div class="modal-header">
+      <div class="modal-title" id="gmTitle">&#x1F3F7; 分组管理</div>
+      <button class="modal-close" onclick="closeGroupManager()">&#x2715;</button>
+    </div>
+    <!-- Main view: group list -->
+    <div id="gmMainView">
+      <div class="form-group">
+        <label class="form-label">新建分组</label>
+        <div style="display:flex;gap:0.5rem">
+          <input type="text" class="form-input form-input-name" id="newGroupName" placeholder="分组名（小写字母/数字）" spellcheck="false" style="flex:1">
+          <button class="btn btn-primary" onclick="createGroup()" style="flex:0 0 auto;padding:0.6rem 1.2rem">创建</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">分组列表</label>
+        <div id="groupDefsList" style="min-height:40px"></div>
+      </div>
+    </div>
+    <!-- Picker view: assign containers to a group -->
+    <div id="gmPickerView" style="display:none">
+      <div style="margin-bottom:0.8rem">
+        <button class="gm-back-btn" onclick="gmShowMain()">&#x2190; 返回列表</button>
+      </div>
+      <div class="gm-section-title">勾选要加入此分组的容器（点击切换）</div>
+      <div class="gm-picker" id="gmPickerGrid"></div>
+      <div class="modal-actions" style="margin-top:1rem">
+        <button class="btn btn-ghost" onclick="gmShowMain()">取消</button>
+        <button class="btn btn-primary" onclick="gmSavePicker()">保存</button>
+      </div>
+    </div>
+    <div class="modal-msg" id="groupMgrMsg"></div>
+  </div>
+</div>
+
+
+<!-- TOASTS -->
+<div class="toast-container" id="toasts"></div>
+
+<script>
+const API = '/api';
+
+// Russian UI layer.  The gateway can also return short Chinese status strings;
+// observing DOM updates keeps generated cards, dialogs and notifications in the
+// same language without changing API payloads or model prompts.
+const RU_UI = {
+  '描述你想生成的画面，如：一只橘猫趴在窗台上晒太阳，窗外是樱花': 'Опишите желаемую сцену, например: рыжий кот греется на подоконнике, за окном цветёт сакура',
+  'Shift+Enter 换行，Enter 生成': 'Shift+Enter — новая строка, Enter — создать',
+  '绑定网卡 IP': 'IP-адрес для привязки',
+  '达到阈值后自动禁用容器': 'Автоматически отключать контейнер после достижения порога',
+  '连续多少次匹配错误后禁用': 'Отключать после указанного числа последовательных ошибок',
+  '触发禁用的状态码': 'Коды статуса для отключения',
+  '触发禁用的关键词': 'Ключевые слова для отключения',
+  '仅这些 HTTP 状态码会触发计数。留空则忽略状态码。': 'Только эти коды HTTP учитываются. Оставьте пустым, чтобы их игнорировать.',
+  '错误信息包含这些关键词时触发计数。不区分大小写。': 'Счётчик растёт, когда ошибка содержит эти слова. Регистр не важен.',
+  '显示最近请求的模型映射记录：请求模型 → 实际 header 家族和 token。': 'Показывает последние сопоставления модели: запрос → фактические заголовки и токен.',
+  '这里保存稳定槽位。Gemini 运行时模型名变化后，系统会优先保留人工选择，失效时再自动回退。': 'Здесь сохраняются закреплённые слоты моделей. Ручной выбор имеет приоритет до тех пор, пока модель доступна.',
+  '0.0.0.0 = 所有网卡（docker 消费者/同机服务能访问，需防火墙保护端口）· 127.0.0.1 = 仅本机回环（需反代）· 或填内网 IP': '0.0.0.0 — все интерфейсы (защитите порт firewall); 127.0.0.1 — только локально; также можно указать LAN IP.',
+  '编辑会话进行中 — 继续输入指令修改图片': 'Сеанс редактирования активен — продолжайте вводить команды для изменения изображения',
+  '拖拽或点击上传图片/视频/音频': 'Перетащите или нажмите, чтобы загрузить изображение, видео или аудио',
+  '支持从图库拖入 · 图片/视频/音频均可': 'Можно перетаскивать из галереи; поддерживаются изображения, видео и аудио',
+  '素材（拖拽上传图片/视频/音频）': 'Материал (перетащите изображение, видео или аудио)',
+  '排除内容（负面提示词）': 'Исключить из результата (негативный промпт)',
+  '自定义排除内容': 'Свои исключения',
+  '提示词优化仅支持图片模式': 'Улучшение промпта доступно только для изображений',
+  '请先输入提示词': 'Сначала введите промпт',
+  '请输入编辑指令': 'Введите команду редактирования',
+  '请先上传素材': 'Сначала загрузите материал',
+  '请上传图片、视频或音频文件': 'Загрузите изображение, видео или аудиофайл',
+  '请先上传图片或视频': 'Сначала загрузите изображение или видео',
+  '音频不支持风格解析': 'Аудио не поддерживает анализ стиля',
+  '请先输入密码': 'Введите пароль',
+  '密码错误': 'Неверный пароль',
+  '登录失败': 'Не удалось войти',
+  '连接失败': 'Ошибка подключения',
+  '加载设置失败': 'Не удалось загрузить настройки',
+  '加载失败': 'Не удалось загрузить',
+  '保存失败': 'Не удалось сохранить',
+  '创建失败': 'Не удалось создать',
+  '删除失败': 'Не удалось удалить',
+  '重启失败': 'Не удалось перезапустить',
+  '操作失败': 'Операция не выполнена',
+  '测试失败': 'Проверка не пройдена',
+  '任务创建失败': 'Не удалось создать задачу',
+  '模式未知': 'Режим неизвестен',
+  'worker 模式': 'Режим worker',
+  'accounts 模式': 'Режим accounts',
+  '容器管理': 'Управление контейнерами',
+  '影像工作室': 'Студия медиа',
+  '网关日志': 'Журнал шлюза',
+  '生成设置': 'Настройки генерации',
+  '图片风格': 'Стиль изображения',
+  '视频风格': 'Стиль видео',
+  '音乐风格': 'Стиль музыки',
+  '模板': 'Шаблоны',
+  '比例': 'Соотношение',
+  '提示词': 'Промпт',
+  '生图': 'Изображение',
+  '标准': 'Стандарт',
+  '创作': 'Создание',
+  '生成图片': 'Создать изображение',
+  '生成视频': 'Создать видео',
+  '生成音乐': 'Создать музыку',
+  '优化提示词': 'Улучшить промпт',
+  '编辑 · 转换': 'Редактирование · преобразование',
+  '解析风格': 'Анализ стиля',
+  '移除素材': 'Удалить материал',
+  '取消': 'Отмена',
+  '项目图库': 'Галерея проекта',
+  '视频库': 'Видеотека',
+  '音频库': 'Аудиотека',
+  '还没有保存的图片': 'Сохранённых изображений пока нет',
+  '还没有保存的视频': 'Сохранённых видео пока нет',
+  '还没有保存的音频': 'Сохранённого аудио пока нет',
+  '加载更多': 'Загрузить ещё',
+  '账号名称': 'Название аккаунта',
+  '可选别名': 'Необязательный псевдоним',
+  '所属分组': 'Группа',
+  '默认分组': 'Группа по умолчанию',
+  '粘贴 cookie 值': 'Вставьте значение cookie',
+  '部署': 'Применить',
+  '容器日志': 'Журнал контейнера',
+  '自动禁用': 'Автоотключение',
+  '错误阈值': 'Порог ошибок',
+  '模型列表': 'Список моделей',
+  '模型槽位': 'Слоты моделей',
+  '模型真相': 'Фактические модели',
+  '刷新': 'Обновить',
+  '保存槽位': 'Сохранить слоты',
+  '点击刷新获取模型列表': 'Нажмите «Обновить», чтобы получить список моделей',
+  '展开全部': 'Развернуть всё',
+  '收起': 'Свернуть',
+  '暂无模型': 'Моделей пока нет',
+  '暂无槽位': 'Слотов пока нет',
+  '自动选择': 'Выбирать автоматически',
+  '暂无请求记录': 'Записей запросов пока нет',
+  '错误明细': 'Сведения об ошибках',
+  '完整日志：': 'Полный журнал:',
+  '分组管理': 'Управление группами',
+  '新建分组': 'Новая группа',
+  '分组名（小写字母/数字）': 'Название группы (строчные буквы/цифры)',
+  '创建': 'Создать',
+  '分组列表': 'Список групп',
+  '返回列表': 'Вернуться к списку',
+  '勾选要加入此分组的容器（点击切换）': 'Выберите контейнеры для этой группы',
+  '选择容器': 'Выбрать контейнеры',
+  '改名': 'Переименовать',
+  '保存': 'Сохранить',
+  '登录': 'Войти',
+  '退出': 'Выйти',
+  '设置': 'Настройки',
+  '正常': 'Норма',
+  '异常': 'Ошибка',
+  '已禁用': 'Отключён',
+  '已启用': 'Включён',
+  '无 Cookie': 'Нет cookie',
+  '仅生文': 'Только текст',
+  '处理中': 'В работе',
+  '未检测': 'Не проверен',
+  '可用': 'Доступно',
+  '测试中...': 'Проверка…',
+  '测试': 'Проверить',
+  '禁用': 'Отключить',
+  '启用': 'Включить',
+  '删除': 'Удалить',
+  '重启容器': 'Перезапустить контейнер',
+  '重启实例': 'Перезапустить экземпляр',
+  '已刷新': 'Обновлено',
+  '加载中...': 'Загрузка…',
+  '暂无日志': 'Журнал пуст',
+  '已复制': 'Скопировано',
+  '复制失败': 'Не удалось скопировать',
+  '已取消': 'Отменено',
+  '等待中...': 'Ожидание…',
+  '就绪': 'Готово',
+  '请求中...': 'Выполняется…',
+  '全部失败': 'Все попытки не удались',
+  '已保存到图库': 'Сохранено в галерею',
+  '已保存到视频库': 'Сохранено в видеотеку',
+  '已保存到音频库': 'Сохранено в аудиотеку',
+  '已加载到素材区': 'Загружено в область материалов',
+  '编辑': 'Редактировать',
+  '查看提示词': 'Показать промпт',
+  '点击复制': 'Нажмите, чтобы скопировать',
+  '下载': 'Скачать',
+  '打开原始链接': 'Открыть исходную ссылку',
+  '无风格': 'Без стиля',
+  '单色': 'Монохром', '色块': 'Цветовые блоки', '跑道': 'Подиум', '孔版印刷': 'Трафаретная печать',
+  '绚彩': 'Яркие цвета', '哥特黏土': 'Готическая глина', '轰动': 'Экспрессия', '沙龙': 'Салон',
+  '素描': 'Набросок', '电影效果': 'Кинематографично', '蒸汽朋克': 'Стимпанк', '日出': 'Рассвет',
+  '神话斗士': 'Мифический воин', '超现实': 'Сюрреализм', '幽暗': 'Мрачно', '珐琅胸针': 'Эмалевый значок',
+  '赛博格': 'Киборг', '柔美人像': 'Мягкий портрет', '怀旧卡通': 'Ретро-мультфильм', '油画': 'Масляная живопись',
+  '动漫': 'Аниме', '写实': 'Фотореализм', '水彩': 'Акварель', '像素': 'Пиксель-арт', '可爱': 'Милый',
+  '吉卜力': 'Ghibli', '乙女CG': 'Otome CG', '幻想动漫': 'Фэнтези-аниме', '新海诚': 'Макото Синкай', '柔和动漫': 'Мягкое аниме', 'P站精选': 'Подборка Pixiv', '精致线条': 'Тонкие линии',
+  '韩剧': 'Корейская драма', '恐怖片': 'Хоррор', '末日片': 'Постапокалипсис', '悬疑片': 'Детектив', '爱情片': 'Романтика', '动作片': 'Боевик',
+  '武侠片': 'Уся', '科幻片': 'Научная фантастика', '黑色电影': 'Нуар', '吉卜力动画': 'Аниме Ghibli', '慢动作': 'Замедление',
+  '延时': 'Таймлапс', '航拍': 'Аэросъёмка', '跟踪长镜头': 'Следящий план', '第一人称': 'От первого лица', '定格动画': 'Покадровая анимация',
+  '流行': 'Поп', '摇滚': 'Рок', '古典': 'Классика', '爵士': 'Джаз', '电子': 'Электроника', '民谣': 'Фолк', '嘻哈': 'Хип-хоп',
+  '氛围': 'Эмбиент', '乡村': 'Кантри', '雷鬼': 'Регги', '波萨诺瓦': 'Босса-нова', '管弦乐': 'Оркестровая музыка', '原声': 'Акустика', '摇篮曲': 'Колыбельная', '电影配乐': 'Саундтрек',
+  '粗线条': 'Толстые линии', '漫画描边': 'Комиксный контур', '粗糙质感': 'Грубая фактура', '欧美漫画': 'Западный комикс', '写实照片': 'Реалистичное фото', 'Q版变形': 'Чиби', '文字水印': 'Текст и водяные знаки',
+  'Container': 'Контейнер', 'Channel Guard': 'Защита канала'
+};
+
+const RU_UI_ENTRIES = Object.entries(RU_UI).sort((a, b) => b[0].length - a[0].length);
+function localizeRussian(value) {
+  if (!value) return value;
+  let translated = value;
+  for (const [source, target] of RU_UI_ENTRIES) translated = translated.replaceAll(source, target);
+  return translated;
+}
+function localizeRussianNode(root) {
+  if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode);
+  for (const node of textNodes) {
+    const parent = node.parentElement;
+    if (!parent || parent.closest('script, style, textarea, .gallery-meta, .gallery-prompt, .card-name, .card-preview')) continue;
+    const translated = localizeRussian(node.nodeValue);
+    if (translated !== node.nodeValue) node.nodeValue = translated;
+  }
+  if (root.nodeType === Node.ELEMENT_NODE) {
+    root.querySelectorAll?.('[placeholder],[title],[aria-label]').forEach(el => {
+      for (const attr of ['placeholder', 'title', 'aria-label']) {
+        if (el.hasAttribute(attr)) el.setAttribute(attr, localizeRussian(el.getAttribute(attr)));
+      }
+    });
+  }
+}
+localizeRussianNode(document.body);
+new MutationObserver(records => {
+  for (const record of records) {
+    if (record.type === 'characterData') localizeRussianNode(record.target.parentElement);
+    for (const node of record.addedNodes) {
+      if (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.TEXT_NODE) localizeRussianNode(node.nodeType === Node.TEXT_NODE ? node.parentElement : node);
+    }
+  }
+}).observe(document.body, {childList: true, subtree: true, characterData: true});
+
+let password = '';
+let accounts = [];
+let gatewayStatus = null;
+let currentNum = null;
+let names = {};
+let autoRefreshTimer = null;
+let modelProfiles = null;
+let modelTruthEntries = [];
+let currentMode = 'unknown';
+
+// ── Helpers ────────────────────────────────────────────────
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function copyText(text, el) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = el.textContent;
+    el.textContent = '已复制';
+    el.style.color = 'var(--success)';
+    setTimeout(() => { el.textContent = orig; el.style.color = ''; }, 1000);
+  }).catch(() => toast('复制失败', 'err'));
+}
+
+function authHeaders(extra) {
+  const h = Object.assign({'Content-Type': 'application/json'}, extra || {});
+  if (password) h['Authorization'] = 'Bearer ' + password;
+  return h;
+}
+
+const GROUP_COLORS = ['#7C5CFC','#E06B5E','#2D9CDB','#27AE60','#F2994A','#9B51E0','#EB5757','#219653'];
+function groupColor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+  return GROUP_COLORS[Math.abs(h) % GROUP_COLORS.length];
+}
+
+function loadNames() {
+  try { names = JSON.parse(localStorage.getItem('cm-names') || '{}'); } catch { names = {}; }
+}
+
+function saveName(num, name) {
+  if (name) names[num] = name; else delete names[num];
+  localStorage.setItem('cm-names', JSON.stringify(names));
+  fetch(`/gateway/name/${num}`, {
+    method: 'POST', headers: authHeaders(),
+    body: JSON.stringify({name: name || ''})
+  }).catch(() => {});
+}
+
+// ── Login ──────────────────────────────────────────────────
+function doLogin() {
+  const pwd = document.getElementById('loginPwd').value;
+  const errEl = document.getElementById('loginErr');
+  if (!pwd) { errEl.textContent = '请输入密码'; return; }
+  errEl.textContent = '';
+
+  fetch(API + '/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: pwd })
+  })
+  .then(async r => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) }))
+  .then(({ ok, status, data }) => {
+    if (!ok) {
+      if (status === 401) throw new Error('密码错误');
+      throw new Error(data.detail || data.error || '登录失败');
+    }
+    password = pwd;
+    // 触发浏览器保存密码
+    if (window.PasswordCredential) {
+      try {
+        navigator.credentials.store(new PasswordCredential({id: 'admin', password: pwd}));
+      } catch(e) {}
+    }
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('app').classList.add('visible');
+    loadNames();
+    loadAll();
+    startAutoRefresh();
+  })
+  .catch(e => {
+    errEl.textContent = e.message || '连接失败';
+  });
+}
+
+function doLogout() {
+  password = '';
+  stopAutoRefresh();
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('loginPwd').value = '';
+  document.getElementById('loginErr').textContent = '';
+}
+
+// 自动填充已保存的密码
+if (window.PasswordCredential) {
+  navigator.credentials.get({password: true, mediation: 'silent'}).then(cred => {
+    if (cred && cred.password) {
+      document.getElementById('loginPwd').value = cred.password;
+    }
+  }).catch(() => {});
+}
+
+// ── Data Loading ───────────────────────────────────────────
+async function loadAll() {
+  try {
+    const [accountsRes, statusRes, logsRes] = await Promise.all([
+      fetch(API + '/accounts', {headers: authHeaders()}),
+      fetch('/gateway/status', {headers: authHeaders()}),
+      fetch('/gateway/logs?limit=80', {headers: authHeaders()}),
+    ]);
+    if (accountsRes.ok) {
+      const data = await accountsRes.json();
+      accounts = (data.accounts || []).sort((a, b) => Number(a.num) - Number(b.num));
+    }
+    if (statusRes.ok) {
+      gatewayStatus = await statusRes.json();
+      currentMode = gatewayStatus.mode || 'unknown';
+    }
+    if (logsRes.ok) {
+      const logData = await logsRes.json();
+      renderLogs(logData.logs || []);
+    }
+    renderGrid();
+    updateImgGroupSelect();
+    initImgStudio();
+  } catch(e) {
+    toast('加载失败: ' + e.message, 'err');
+  }
+}
+
+async function doRefresh() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  try {
+    await fetch('/gateway/refresh', { method: 'POST', headers: authHeaders() });
+    await loadAll();
+    toast('已刷新', 'info');
+  } catch(e) {
+    toast('刷新失败', 'err');
+  } finally {
+    btn.classList.remove('spinning');
+  }
+}
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  autoRefreshTimer = setInterval(loadAll, 10000);
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+}
+
+// ── Render Grid ────────────────────────────────────────────
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  let okCount = 0, badCount = 0, offCount = 0;
+
+  const gwMap = {};
+  if (gatewayStatus && gatewayStatus.containers) {
+    gatewayStatus.containers.forEach(c => { gwMap[c.num] = c; });
+  }
+
+  const cards = accounts.map(a => {
+    const num = a.num;
+    const hasCookie = a.has_cookie;
+    const gw = gwMap[num] || null;
+    const name = (gw && gw.name) || names[num] || '';
+    const preview = a.psid_preview || '';
+    const group = (gw && gw.group) || '';
+    const port = (gw && gw.port) || '';
+
+    let cardClass, dotClass, stateLabel;
+    if (gw && !gw.enabled) {
+      cardClass = 'disabled-card'; dotClass = 'yellow'; stateLabel = '已禁用';
+      offCount++;
+    } else if (gw && gw.healthy && gw.img_blocked) {
+      cardClass = 'img-blocked'; dotClass = 'orange'; stateLabel = '仅生文';
+      okCount++;
+    } else if (gw && gw.healthy && gw.busy) {
+      cardClass = 'healthy'; dotClass = 'blue'; stateLabel = '处理中';
+      okCount++;
+    } else if (gw && gw.healthy) {
+      cardClass = 'healthy'; dotClass = 'green'; stateLabel = '正常';
+      okCount++;
+    } else if (gw && !gw.healthy) {
+      cardClass = 'unhealthy'; dotClass = 'red'; stateLabel = '异常';
+      badCount++;
+    } else if (hasCookie) {
+      cardClass = 'healthy'; dotClass = 'grey'; stateLabel = '未检测';
+      okCount++;
+    } else {
+      cardClass = 'no-cookie'; dotClass = 'grey'; stateLabel = '无 Cookie';
+      badCount++;
+    }
+
+    const tier = gw && gw.tier;
+    if (tier && tier !== 'free' && tier !== 'unknown') {
+      cardClass += ` tier-${tier}`;
+    }
+
+    let actionBtn = '';
+    if (gw) {
+      const testBtn = `<button class="card-btn test" id="testBtn${num}" onclick="event.stopPropagation();testContainer(${num})">测试</button>`;
+      const restartLabel = currentMode === 'worker'
+        ? 'Reload Slot'
+        : (currentMode === 'accounts' ? '重启容器' : '重启实例');
+      const restartBtn = `<button class="card-btn restart" onclick="event.stopPropagation();restartContainer(${num})">${restartLabel}</button>`;
+      if (gw.enabled) {
+        actionBtn = testBtn + restartBtn + `<span style="flex:1"></span><button class="card-btn disable" onclick="event.stopPropagation();toggleContainer(${num}, false)">禁用</button>`;
+      } else {
+        actionBtn = testBtn + restartBtn + `<span style="flex:1"></span><button class="card-btn enable" onclick="event.stopPropagation();toggleContainer(${num}, true)">启用</button><button class="card-btn disable" onclick="event.stopPropagation();deleteContainer(${num})" style="margin-left:4px">删除</button>`;
+      }
+    }
+
+    let statsLine = '';
+    if (gw) {
+      const chat = gw.chat_requests || 0;
+      const img = gw.image_requests || 0;
+      const errs = gw.total_errors || 0;
+      statsLine = `<div class="card-stats"><span class="stat-item">聊天 ${chat}</span><span class="stat-item">图片 ${img}</span>${errs ? `<span class="stat-item stat-err" onclick="event.stopPropagation();showErrorHistory(${num})" style="cursor:pointer;text-decoration:underline dotted" title="点击查看错误明细">错误 ${errs}</span>` : ''}</div>`;
+    }
+
+    // Error line only when no warning bar already explains the situation
+    const hasWarning = gw && (gw.needs_cookie || gw.img_blocked);
+    const showErrorLine = gw && gw.last_error && !gw.healthy && !hasWarning;
+    let errorLine = '';
+    if (showErrorLine) {
+      errorLine = `<div class="card-error" title="${esc(gw.last_error)}">${esc(gw.last_error)}</div>`;
+    }
+
+    const groupBadge = group
+      ? `<span class="group-badge" style="background:${groupColor(group)};color:#fff">${esc(group)}</span>`
+      : `<span class="group-badge" style="background:var(--border);color:var(--text-muted)">默认</span>`;
+    return `
+      <div class="card ${cardClass}" onclick="openModal(${num})">
+        <div class="card-header">
+          <span class="card-num">#${num} <span class="card-port">:${port}</span></span>
+          <span class="card-status ${dotClass}" title="${stateLabel}"></span>
+        </div>
+        <div class="card-meta"><span class="card-name" ${name ? `onclick="event.stopPropagation();copyText('${esc(name)}',this)" style="cursor:copy" title="点击复制"` : ''}>${esc(name || 'Container ' + num)}</span>${groupBadge}</div>
+        <div class="card-preview ${preview ? '' : 'empty'}">
+          ${preview ? esc(preview) : '无 Cookie'}
+        </div>
+        ${gw && gw.needs_cookie ? '<div class="card-warn">Cookie 无效，需更新</div>' : ''}
+        ${gw && gw.img_blocked && !gw.needs_cookie ? '<div class="card-warn">仅生文，需更新Cookie</div>' : ''}
+        ${gw && gw.busy ? '<div class="card-busy">处理中</div>' : ''}
+        ${statsLine}
+        ${errorLine}
+        <div class="card-actions">${actionBtn}</div>
+      </div>
+    `;
+  });
+
+  grid.innerHTML = cards.join('');
+  document.getElementById('statOk').textContent = okCount + ' 正常';
+  document.getElementById('statBad').textContent = badCount + ' 异常';
+  document.getElementById('statOff').textContent = offCount + ' 已禁用';
+
+  const total = accounts.length;
+  const avail = gatewayStatus ? gatewayStatus.available : okCount;
+  document.getElementById('topbarSub').textContent = `${avail}/${total} 可用`;
+  const modePill = document.getElementById('modePill');
+  if (currentMode === 'worker') {
+    modePill.textContent = 'worker 模式';
+    modePill.style.display = '';
+  } else if (currentMode === 'accounts') {
+    modePill.textContent = 'accounts 模式';
+    modePill.style.display = '';
+  } else {
+    modePill.textContent = '模式未知';
+    modePill.style.display = 'none';
+  }
+}
+
+// ── Gateway Actions ────────────────────────────────────────
+async function toggleContainer(num, enable) {
+  const action = enable ? 'enable' : 'disable';
+  try {
+    await fetch(`/gateway/${action}/${num}`, { method: 'POST', headers: authHeaders() });
+    toast(`#${num} 已${enable ? '启用' : '禁用'}`, 'ok');
+    await loadAll();
+  } catch(e) {
+    toast('操作失败', 'err');
+  }
+}
+
+async function deleteContainer(num) {
+  if (!confirm(`确认删除容器 #${num}？将停止容器并移除配置，不可恢复。`)) return;
+  try {
+    await fetch(`/gateway/container/${num}`, { method: 'DELETE', headers: authHeaders() });
+    toast(`#${num} 已删除`, 'ok');
+    await loadAll();
+  } catch(e) {
+    toast('删除失败', 'err');
+  }
+}
+
+async function restartContainer(num) {
+  const targetLabel = currentMode === 'worker'
+    ? 'reload slot'
+    : (currentMode === 'accounts' ? '重启容器' : '重启实例');
+  if (!confirm(`确认${targetLabel} #${num}？`)) return;
+  try {
+    const resp = await fetch(`/gateway/restart/${num}`, { method: 'POST', headers: authHeaders() });
+    if (resp.ok) {
+      const actionLabel = currentMode === 'worker'
+        ? 'reload slot'
+        : (currentMode === 'accounts' ? '重启容器' : '重启实例');
+      toast(`#${num} 正在${actionLabel}`, 'ok');
+    } else {
+      const d = await resp.json().catch(() => ({}));
+      toast(d.detail || '重启失败', 'err');
+    }
+    await loadAll();
+  } catch(e) {
+    toast('重启失败: ' + e.message, 'err');
+  }
+}
+
+// ── Container Test ─────────────────────────────────────────
+async function testContainer(num) {
+  const btn = document.getElementById('testBtn' + num);
+  if (!btn) return;
+  btn.classList.add('testing');
+  btn.textContent = '测试中...';
+  btn.style.minWidth = btn.offsetWidth + 'px';
+  try {
+    const resp = await fetch(`/gateway/test/${num}`, { method: 'POST', headers: authHeaders() });
+    const data = await resp.json();
+    if (data.ok) {
+      btn.textContent = '✓ 可用';
+      btn.style.borderColor = 'var(--success)';
+      btn.style.color = '#2D7A52';
+      btn.style.background = 'var(--success-light)';
+      toast(`#${num} [${data.model}] 正常 — "${data.reply}"`, 'ok');
+    } else {
+      btn.textContent = '✗ 异常';
+      btn.style.borderColor = 'var(--danger)';
+      btn.style.color = '#B94A4A';
+      btn.style.background = 'var(--danger-light)';
+      toast(`#${num} 异常: ${data.error}`, 'err');
+    }
+  } catch(e) {
+    btn.textContent = '✗ 失败';
+    btn.style.borderColor = 'var(--danger)';
+    btn.style.color = '#B94A4A';
+    toast(`#${num} 测试失败: ${e.message}`, 'err');
+  } finally {
+    btn.classList.remove('testing');
+    setTimeout(() => {
+      btn.textContent = '测试';
+      btn.style.cssText = '';
+    }, 5000);
+  }
+}
+
+// ── Container Logs (in deploy modal) ──────────────────────
+function toggleContainerLog() {
+  const body = document.getElementById('cLogBody');
+  const arrow = document.getElementById('cLogArrow');
+  const isOpen = body.classList.toggle('open');
+  arrow.classList.toggle('open');
+  if (isOpen && currentNum !== null) loadContainerLog(currentNum);
+}
+
+async function loadContainerLog(num) {
+  const list = document.getElementById('cLogList');
+  list.innerHTML = '<div class="log-entry info">加载中...</div>';
+  try {
+    const resp = await fetch(`/gateway/container-log/${num}?tail=40`, { headers: authHeaders() });
+    const data = await resp.json();
+    if (data.ok && data.lines.length > 0) {
+      list.innerHTML = data.lines.map(l => {
+        // Parse docker timestamp: 2026-03-20T17:37:57.941696623Z ...
+        let time = '', msg = l;
+        const m = l.match(/^(\d{4}-\d{2}-\d{2}T(\d{2}:\d{2}:\d{2}))\.\d+Z\s*(.*)/);
+        if (m) { time = m[2]; msg = m[3]; }
+        const isErr = /error|fail|exception|traceback|500|blocked/i.test(msg);
+        const cls = isErr ? 'error' : 'info';
+        const timeHtml = time ? `<span class="time">${time}</span>` : '';
+        return `<div class="log-entry ${cls}">${timeHtml}${esc(msg)}</div>`;
+      }).join('');
+      list.parentElement.scrollTop = list.parentElement.scrollHeight;
+    } else {
+      list.innerHTML = '<div class="log-entry info">暂无日志</div>';
+    }
+  } catch(e) {
+    list.innerHTML = `<div class="log-entry error">加载失败: ${esc(e.message)}</div>`;
+  }
+}
+
+// ── Model Refresh ─────────────────────────────────────────
+async function refreshModels() {
+  try {
+    const resp = await fetch('/gateway/refresh-models', { method: 'POST', headers: authHeaders() });
+    const data = await resp.json();
+    if (resp.ok) {
+      renderModelChips((data.models || []).map(m => m.id));
+      await loadModelInspector();
+      await loadModelSelect();
+      toast('模型已刷新', 'ok');
+    } else {
+      toast(data.detail || '刷新失败', 'err');
+    }
+  } catch(e) {
+    toast('刷新失败: ' + e.message, 'err');
+  }
+}
+function renderModelChips(models) {
+  const box = document.getElementById('modelChips');
+  const toggle = document.getElementById('modelToggle');
+  box.classList.remove('expanded');
+  toggle.textContent = '展开全部';
+  if (!models.length) { box.innerHTML = '<span class="model-chip-empty">暂无模型</span>'; toggle.classList.remove('visible'); return; }
+  box.innerHTML = models.map(m => `<span class="model-chip">${esc(m)}</span>`).join('');
+  // check if overflow
+  requestAnimationFrame(() => {
+    toggle.classList.toggle('visible', box.scrollHeight > box.clientHeight + 2);
+  });
+}
+function toggleModelChips() {
+  const box = document.getElementById('modelChips');
+  const toggle = document.getElementById('modelToggle');
+  const expanded = box.classList.toggle('expanded');
+  toggle.textContent = expanded ? '收起' : '展开全部';
+}
+
+async function loadModelInspector() {
+  try {
+    const [profilesResp, truthResp] = await Promise.all([
+      fetch('/gateway/model-profiles', {headers: authHeaders()}),
+      fetch('/gateway/model-truth?limit=12', {headers: authHeaders()}),
+    ]);
+
+    if (profilesResp.ok) {
+      const data = await profilesResp.json();
+      modelProfiles = data;
+      renderModelProfiles(data.slots || {}, data.models || []);
+    }
+
+    if (truthResp.ok) {
+      const data = await truthResp.json();
+      modelTruthEntries = data.entries || [];
+      renderModelTruth(modelTruthEntries);
+    }
+  } catch(e) {
+    console.error('Failed to load model inspector:', e);
+  }
+}
+
+function renderModelProfiles(slots, models) {
+  const box = document.getElementById('modelSlotList');
+  if (!box) return;
+  const slotKeys = Object.keys(slots || {});
+  if (!slotKeys.length) {
+    box.innerHTML = '<div class="model-chip-empty">暂无槽位</div>';
+    return;
+  }
+
+  const optionHtml = models.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+  box.innerHTML = slotKeys.map(slot => {
+    const info = slots[slot] || {};
+    const selected = info.model || '';
+    const selectedHtml = selected && !models.includes(selected)
+      ? `<option value="${esc(selected)}">${esc(selected)}（已失效）</option>`
+      : '';
+    return `
+      <div class="model-slot-row">
+        <div class="model-slot-label">${esc(info.label || slot)}</div>
+        <select class="model-slot-select" data-slot="${esc(slot)}">
+          <option value="">自动选择</option>
+          ${selectedHtml}
+          ${optionHtml}
+        </select>
+        <div class="model-slot-source">${esc(info.source || '')}</div>
+      </div>
+    `;
+  }).join('');
+
+  box.querySelectorAll('.model-slot-select').forEach(select => {
+    const slot = select.dataset.slot;
+    const selected = (slots[slot] || {}).model || '';
+    if (selected) select.value = selected;
+  });
+}
+
+function renderModelTruth(entries) {
+  const box = document.getElementById('modelTruthList');
+  if (!box) return;
+  if (!entries || !entries.length) {
+    box.innerHTML = '<div class="model-chip-empty">暂无请求记录</div>';
+    return;
+  }
+  box.innerHTML = entries.map(entry => `
+    <div class="truth-row">
+      <div class="truth-top">
+        <span class="truth-endpoint">${esc(entry.endpoint || 'unknown')}</span>
+        <span>${esc(entry.header_family || 'unknown')}</span>
+        <span class="truth-token">${esc(entry.header_token || '-')}</span>
+      </div>
+      <div class="truth-main">${esc(entry.requested_model || '')} → ${esc(entry.resolved_model || '')}</div>
+      <div class="truth-meta">#${esc(String(entry.container || ''))}${entry.group ? ' · [' + esc(entry.group) + ']' : ''} · ${esc(entry.resolution || '')} · ${esc(entry.last_seen || '')}</div>
+    </div>
+  `).join('');
+}
+
+async function saveModelProfiles() {
+  const box = document.getElementById('modelSlotList');
+  if (!box) return;
+  const slots = {};
+  box.querySelectorAll('.model-slot-select').forEach(select => {
+    slots[select.dataset.slot] = select.value || '';
+  });
+  try {
+    const resp = await fetch('/gateway/model-profiles', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ slots }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      throw new Error(data.detail || '保存失败');
+    }
+    modelProfiles = data;
+    renderModelProfiles(data.slots || {}, data.models || []);
+    await loadModelSelect();
+    toast('模型槽位已保存', 'ok');
+  } catch(e) {
+    toast('保存槽位失败: ' + e.message, 'err');
+  }
+}
+
+// ── Logs ───────────────────────────────────────────────────
+function renderLogs(logEntries) {
+  const html = logEntries.map(l => {
+    const cn = l.container !== null ? `<span class="cnum">#${l.container}</span>` : '';
+    return `<div class="log-entry ${l.level}"><span class="time">${esc(l.time)}</span>${cn}${esc(l.message)}</div>`;
+  }).join('');
+  document.getElementById('logList').innerHTML = html || '<div class="log-entry info">暂无日志</div>';
+}
+
+// ── Tabs ──────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+  document.getElementById('tabContent' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+  if (tab === 'studio') {
+    loadGallery();
+    loadVideoGallery();
+    loadAudioGallery();
+    // Sync upload area height with button column (must be visible to measure)
+    requestAnimationFrame(() => {
+      const col = document.getElementById('imgBtnCol');
+      const area = document.getElementById('imgUploadArea');
+      if (col && area && !uploadedImageB64) area.style.minHeight = col.offsetHeight + 'px';
+    });
+  }
+}
+
+// ── Image Studio ──────────────────────────────────────────
+const IMG_STYLES = [
+  {id:'none',label:'无风格',icon:'🎯'},
+  // Gemini 官方图片风格
+  {id:'Monochrome',label:'单色',icon:'⬛'},{id:'Color Block',label:'色块',icon:'🟧'},
+  {id:'Runway',label:'跑道',icon:'👗'},{id:'Screen Print',label:'孔版印刷',icon:'🖨️'},
+  {id:'Colorful',label:'绚彩',icon:'🌈'},{id:'Gothic Clay',label:'哥特黏土',icon:'🧟'},
+  {id:'Explosive',label:'轰动',icon:'💥'},{id:'Salon',label:'沙龙',icon:'💇'},
+  {id:'Sketch',label:'素描',icon:'✏️'},{id:'Cinematic',label:'电影效果',icon:'🎬'},
+  {id:'Steampunk',label:'蒸汽朋克',icon:'⚙️'},{id:'Sunrise',label:'日出',icon:'🌅'},
+  {id:'Myth Fighter',label:'神话斗士',icon:'⚔️'},{id:'Surreal',label:'超现实',icon:'🌀'},
+  {id:'Dark',label:'幽暗',icon:'🌑'},{id:'Enamel Pin',label:'珐琅胸针',icon:'📌'},
+  {id:'Cyborg',label:'赛博格',icon:'🤖'},{id:'Soft Portrait',label:'柔美人像',icon:'🧑‍🎨'},
+  {id:'Retro Cartoon',label:'怀旧卡通',icon:'📺'},{id:'Oil Painting',label:'油画',icon:'🖼️'},
+  // 额外常用
+  {id:'Anime',label:'动漫',icon:'🌸'},{id:'Photorealistic',label:'写实',icon:'📷'},
+  {id:'Watercolor',label:'水彩',icon:'🎨'},{id:'Pixel Art',label:'像素',icon:'👾'},
+  {id:'Kawaii',label:'可爱',icon:'🧸'},{id:'Ghibli',label:'吉卜力',icon:'🍃'},{id:'Otome CG',label:'乙女CG',icon:'🌸'},{id:'Fantasy Anime',label:'幻想动漫',icon:'✨'},{id:'Shinkai',label:'新海诚',icon:'🌊'},{id:'Soft Anime',label:'柔和动漫',icon:'🌿'},{id:'Pixiv Rank',label:'P站精选',icon:'🏆'},{id:'Fine Line',label:'精致线条',icon:'✒️'},
+];
+const IMG_RATIOS = [
+  {id:'1024x1024',label:'1:1',icon:'□'},
+  {id:'1280x720',label:'16:9',icon:'▭'},
+  {id:'720x1280',label:'9:16',icon:'▯'},
+  {id:'1792x1024',label:'3:2',icon:'▬'},
+  {id:'1024x1792',label:'2:3',icon:'▮'},
+];
+const VID_STYLES = [
+  {id:'none',label:'无风格',icon:'🎯'},
+  // 电影流派
+  {id:'Korean Drama',label:'韩剧',icon:'🇰🇷'},{id:'Horror',label:'恐怖片',icon:'👻'},
+  {id:'Apocalypse',label:'末日片',icon:'☄️'},{id:'Suspense',label:'悬疑片',icon:'🔍'},
+  {id:'Romance',label:'爱情片',icon:'💕'},{id:'Action',label:'动作片',icon:'💥'},
+  {id:'Wuxia',label:'武侠片',icon:'⚔️'},{id:'Sci-Fi',label:'科幻片',icon:'🚀'},
+  {id:'Film Noir',label:'黑色电影',icon:'🌑'},{id:'Ghibli Anime',label:'吉卜力动画',icon:'🍃'},
+  // 技法类
+  {id:'Slow Motion',label:'慢动作',icon:'🐌'},{id:'Timelapse',label:'延时',icon:'⏩'},
+  {id:'Drone Shot',label:'航拍',icon:'🚁'},{id:'Tracking Shot',label:'跟踪长镜头',icon:'🎯'},
+  {id:'First Person',label:'第一人称',icon:'👁️'},{id:'Stop Motion',label:'定格动画',icon:'🧱'},
+  // 用途类
+  {id:'Music Video',label:'MV',icon:'🎤'},{id:'Documentary',label:'纪录片',icon:'📹'},
+  {id:'Commercial',label:'广告',icon:'📺'},{id:'Vlog',label:'Vlog',icon:'📱'},
+  {id:'VHS',label:'VHS复古',icon:'📼'},
+];
+const MUSIC_STYLES = [
+  {id:'none',label:'无风格',icon:'🎯'},
+  {id:'Pop',label:'流行',icon:'🎤'},{id:'Rock',label:'摇滚',icon:'🎸'},
+  {id:'Classical',label:'古典',icon:'🎻'},{id:'Jazz',label:'爵士',icon:'🎷'},
+  {id:'Electronic',label:'电子',icon:'🎹'},{id:'R&B',label:'R&B',icon:'🎙️'},
+  {id:'Folk',label:'民谣',icon:'🪕'},{id:'Hip Hop',label:'嘻哈',icon:'🎧'},
+  {id:'Lo-fi',label:'Lo-fi',icon:'☕'},{id:'Ambient',label:'氛围',icon:'🌊'},
+  {id:'Country',label:'乡村',icon:'🤠'},{id:'Reggae',label:'雷鬼',icon:'🌴'},
+  {id:'Bossa Nova',label:'波萨诺瓦',icon:'🌺'},{id:'Orchestral',label:'管弦乐',icon:'🎼'},
+  {id:'Acoustic',label:'原声',icon:'🪗'},{id:'Synthwave',label:'合成器浪潮',icon:'🌆'},
+  {id:'Lullaby',label:'摇篮曲',icon:'🌙'},{id:'Cinematic Score',label:'电影配乐',icon:'🎬'},
+];
+const VID_STYLE_PROMPTS = {
+  // 电影流派
+  "Korean Drama": "韩剧风格视频。镜头缓慢推向人物面部特写，眼神流转嘴唇微颤，背景虚化成光斑，柔和的侧逆光勾勒轮廓，色调清冷偏蓝带暖色高光，情绪在沉默中蔓延",
+  "Horror": "恐怖片风格视频。镜头在黑暗走廊中缓慢前移，光源不稳忽明忽暗，画面边缘有东西一闪而过，突然快速推进到惊恐的面部，色调偏青绿阴冷",
+  "Apocalypse": "末日片风格视频。镜头扫过废墟和残垣断壁，尘土弥漫的空气中人物踉跄前行，天空被烟云笼罩透出惨淡光线，画面去饱和偏灰棕色调",
+  "Suspense": "悬疑片风格视频。镜头角度倾斜不安，缓慢围绕人物旋转，影子在墙上拉长移动，关键时刻画面突然静止，色调偏暗带高对比，低频氛围感",
+  "Romance": "爱情片风格视频。柔光镜头下人物相视微笑，发丝和裙摆被微风轻轻吹动，背景光晕温暖朦胧，镜头在两人之间缓慢切换，色调偏暖金粉调",
+  "Action": "动作片风格视频。镜头急速跟拍奔跑和跳跃动作，快速推拉制造冲击感，爆炸碎片从镜头前飞过，动态模糊强烈，画面力量感十足",
+  "Wuxia": "武侠片风格视频。人物衣袂飘飞腾空而起，镜头从下方仰拍跃起的身影，竹林树叶纷纷震落，动作时快时慢张弛有度，水墨质感画面",
+  "Sci-Fi": "科幻片风格视频。全息投影在空中闪烁，飞船掠过时镜头跟随追拍，金属表面反射蓝色冷光，太空中物体缓慢漂浮旋转，画面科技感十足",
+  "Film Noir": "黑色电影风格视频。高对比黑白画面，百叶窗投下的条状阴影缓慢移动，雨水在街面上反光，烟雾穿过光束",
+  "Ghibli Anime": "吉卜力动画风格视频。角色奔跑时头发和衣服自然飘动，云朵缓慢变幻形状，草地随风如波浪般起伏，光影柔和温暖，每个细节都有生命力",
+  // 技法类
+  "Slow Motion": "慢动作视频。所有动作放慢到四分之一速度，细节清晰可见——头发飘动、水滴飞溅、衣料翻卷，每一帧都锐利",
+  "Timelapse": "延时摄影视频。云层快速流动，光影随太阳旋转，人群如流水穿过街道，城市灯光次第亮起",
+  "Drone Shot": "航拍视频。镜头从高空缓慢下降俯瞰全景，然后贴地飞行穿越场景，前景后景产生强烈纵深感",
+  "Tracking Shot": "跟踪长镜头视频。镜头平稳地水平移动跟拍主体，背景层次分明地滑过，一镜到底不剪切",
+  "First Person": "第一人称视角视频。镜头跟随视线移动，手和物体从画面边缘出入，带自然的行走晃动和呼吸起伏",
+  "Stop Motion": "定格动画视频。每一帧之间有明显的跳跃感，材质是黏土、毛毡、纸板等手工质感，微缩场景，暖色灯光",
+  // 用途类
+  "Music Video": "MV风格视频。画面跟着节拍快速切换，镜头急速推拉和甩动，霓虹灯光闪烁变色，人物表演动作夸张有能量",
+  "Documentary": "纪录片风格视频。手持镜头跟拍主体移动，自然光线，画面轻微晃动，焦点在人物之间切换，色调偏冷偏灰",
+  "Commercial": "广告风格视频。镜头平滑滑行展示主体，打光精致干净，画面明亮通透，主体从虚到实的戏剧性揭示",
+  "Vlog": "Vlog风格视频。正对镜头的手持自拍视角，自然日光，画面带轻微抖动的真实感，跳切剪辑节奏明快",
+  "VHS": "VHS复古视频。画面带扫描线和色彩偏移，偶尔出现信号干扰和雪花噪点，色调泛黄泛暖，分辨率模糊柔和",
+};
+const MUSIC_STYLE_PROMPTS = {
+  "Pop": "Polished pop production with catchy melodic hooks, four-on-the-floor beat at 110-130 BPM, layered synth pads and bright piano, crisp snare and punchy kick, radio-ready vocal mixing with subtle auto-tune shimmer, uplifting major key progressions",
+  "Rock": "Driving rock energy with distorted electric guitars, powerful drum kit with crashing cymbals, thumping bass guitar groove, raw aggressive vocal delivery, 120-140 BPM, dynamic verse-chorus-bridge structure, stadium-filling wall of sound",
+  "Classical": "Classical orchestral composition with full symphony — strings section legato, woodwind countermelodies, brass fanfares, timpani accents, expressive dynamic range from pianissimo to fortissimo, formal sonata or rondo structure, concert hall reverb",
+  "Jazz": "Sophisticated jazz arrangement with walking upright bass, brush-swept ride cymbal swing, Rhodes electric piano comping, mellow saxophone solo lines, complex extended chord voicings — 7ths, 9ths, 13ths, relaxed swing feel at 120-160 BPM, smoky intimate club atmosphere",
+  "Electronic": "Electronic dance production with synthesizer-driven sound design, pulsing sidechain-compressed bass, crisp hi-hat patterns, layered arpeggiated sequences, build-ups with rising white noise sweeps into euphoric drops, 125-140 BPM, wide stereo spatial effects",
+  "R&B": "Smooth R&B production with lush neo-soul harmonies, mellow Rhodes and warm pad textures, tight programmed drums with lazy swing, silky vocal runs and falsetto, deep sub-bass, sensual intimate mood, 70-100 BPM slow groove",
+  "Folk": "Organic folk arrangement with fingerpicked acoustic guitar, warm upright bass or cello, gentle hand percussion — cajón, tambourine, harmonica accents, honest heartfelt vocal storytelling, natural room ambience, 90-120 BPM",
+  "Hip Hop": "Hard-hitting hip-hop beat with deep 808 sub-bass, crisp trap hi-hats with rolls, punchy layered snare, atmospheric dark pads, vocal chops as melodic hooks, 80-95 BPM half-time feel, spacious mix with heavy low end",
+  "Lo-fi": "Lo-fi chill production with vinyl crackle and tape hiss textures, dusty detuned piano chords, mellow jazz guitar samples, lazy boom-bap drum loop with side-chain wobble, warm saturated low-pass filter, nostalgic melancholic mood, 70-85 BPM",
+  "Ambient": "Atmospheric ambient soundscape with evolving synthesizer pads, shimmering granular textures, deep reverb-drenched spaces, subtle field recordings — rain, wind, distant bells, no percussion pulse, weightless floating sensation, wide stereo panorama, meditative calm",
+  "Country": "Country music with bright steel-string acoustic guitar strumming, pedal steel guitar slides, fiddle melodies, steady two-step or train-beat drum pattern, twangy vocal delivery, storytelling narrative lyrics, honky-tonk piano fills, 100-130 BPM",
+  "Reggae": "Reggae rhythm with offbeat guitar skank, deep dub bass drops, rim-shot one-drop drum pattern on beat three, organ bubble comping, brass stabs, echo and reverb delay throws, laid-back island groove at 70-90 BPM, warm sun-drenched feel",
+  "Bossa Nova": "Bossa nova with nylon-string classical guitar syncopated picking pattern, gentle brushed snare, soft upright bass walking line, breathy intimate vocal, subtle flute or saxophone, sophisticated jazz harmony with samba rhythm, 120-140 BPM, elegant understated groove",
+  "Orchestral": "Epic orchestral score with full symphony and choir, soaring string legato melodies, thundering brass fanfares, dramatic timpani and percussion crescendos, harp arpeggios, French horn noble themes, massive dynamic swells from whisper to fortissimo, cinematic scale and grandeur",
+  "Acoustic": "Pure acoustic arrangement with warm steel-string guitar, gentle fingerpicking patterns, natural room reverb, minimal production — voice and instrument only, intimate close-mic recording, organic imperfections preserved, heartfelt stripped-down simplicity",
+  "Synthwave": "Retro synthwave with analog polysynth pads, pulsing arpeggiator sequences, gated reverb snare, driving four-on-the-floor kick, neon-lit 1980s aesthetic, Moog bass growl, vocoder processed vocals, 100-118 BPM, nostalgic futuristic atmosphere",
+  "Lullaby": "Gentle lullaby with music box melody, soft celesta tinkling, delicate harp glissandos, warm cello sustain, whisper-soft female vocal, minimal sparse arrangement, soothing repetitive melodic pattern, very slow tempo 60-70 BPM, peaceful sleepy dreamlike quality",
+  "Cinematic Score": "Cinematic film score with dramatic orchestral swells, emotional piano themes, tension-building string tremolo, heroic brass crescendos, hybrid electronic-orchestral layers, taiko drum impacts, ethereal choir, sweeping dynamic arc from intimate to epic",
+};
+let imgSelectedStyle = 'none', vidSelectedStyle = 'none', musicSelectedStyle = 'none';
+let imgSelectedRatio = '1024x1024';
+const NEG_PRESETS = [
+  {id:'bold lines, thick lines, messy lines',label:'粗线条'},
+  {id:'comic book style bold outlining',label:'漫画描边'},
+  {id:'gritty textures, heavy strokes',label:'粗糙质感'},
+  {id:'western comic book style',label:'欧美漫画'},
+  {id:'realistic photo style',label:'写实照片'},
+  {id:'chibi, super deformed',label:'Q版变形'},
+  {id:'text, watermark, signature',label:'文字水印'},
+];
+let negSelected = new Set();
+let tempImages = []; // {b64, prompt, style, size, quality, channel}
+let galleryImages = [];
+let galleryOffset = 0;
+const GALLERY_PAGE = 24;
+let vidGalleryItems = [];
+let vidGalleryOffset = 0;
+const VID_GALLERY_PAGE = 12;
+let audioGalleryItems = [];
+let audioGalleryOffset = 0;
+const AUDIO_GALLERY_PAGE = 16;
+
+let activeStylePanel = null;
+function renderStyleChips() {
+  const imgEl = document.getElementById('imgStyles');
+  if (imgEl) imgEl.innerHTML = IMG_STYLES.map(s =>
+    `<button class="img-chip${s.id===imgSelectedStyle?' active':''}" data-style="${s.id}" onclick="selectImgStyle('${s.id}')">${s.icon} ${s.label}</button>`
+  ).join('');
+  const vidEl = document.getElementById('vidStyles');
+  if (vidEl) vidEl.innerHTML = VID_STYLES.map(s =>
+    `<button class="img-chip${s.id===vidSelectedStyle?' active':''}" data-style="${s.id}" onclick="selectVidStyle('${s.id}')">${s.icon} ${s.label}</button>`
+  ).join('');
+  const musicEl = document.getElementById('musicStyles');
+  if (musicEl) musicEl.innerHTML = MUSIC_STYLES.map(s =>
+    `<button class="img-chip${s.id===musicSelectedStyle?' active':''}" data-style="${s.id}" onclick="selectMusicStyle('${s.id}')">${s.icon} ${s.label}</button>`
+  ).join('');
+}
+function toggleStylePanel(type) {
+  const panels = {img:'stylePanelImg', vid:'stylePanelVid', music:'stylePanelMusic'};
+  const btns = {img:'styleTabImg', vid:'styleTabVid', music:'styleTabMusic'};
+  if (activeStylePanel === type) {
+    // Close current
+    document.getElementById(panels[type]).style.display = 'none';
+    document.getElementById(btns[type]).style.background = 'var(--surface)';
+    document.getElementById(btns[type]).style.borderColor = 'var(--border)';
+    activeStylePanel = null;
+    return;
+  }
+  // Close all, open target
+  for (const [k, id] of Object.entries(panels)) {
+    document.getElementById(id).style.display = k === type ? '' : 'none';
+    document.getElementById(btns[k]).style.background = k === type ? 'var(--accent-light)' : 'var(--surface)';
+    document.getElementById(btns[k]).style.borderColor = k === type ? 'var(--accent)' : 'var(--border)';
+  }
+  activeStylePanel = type;
+}
+
+function initImgStudio() {
+  // Sync upload area min-height with button column height
+  requestAnimationFrame(() => {
+    const col = document.getElementById('imgBtnCol');
+    const area = document.getElementById('imgUploadArea');
+    if (col && area) area.style.minHeight = col.offsetHeight + 'px';
+  });
+  renderStyleChips();
+  const ratiosEl = document.getElementById('imgRatios');
+  ratiosEl.innerHTML = IMG_RATIOS.map(r =>
+    `<button class="img-chip ratio${r.id===imgSelectedRatio?' active':''}" data-ratio="${r.id}" onclick="selectImgRatio('${r.id}')">${r.icon} ${r.label}</button>`
+  ).join('');
+  // Negative presets
+  const negEl = document.getElementById('negPresets');
+  if (negEl) {
+    negEl.innerHTML = NEG_PRESETS.map(p =>
+      `<button class="img-chip" data-neg="${p.id}" onclick="toggleNegPreset(this,'${p.id}')">${p.label}</button>`
+    ).join('');
+  }
+  // Load model list + style templates
+  loadModelSelect();
+  loadStyleTemplates();
+}
+
+function toggleNegPreset(el, id) {
+  if (negSelected.has(id)) { negSelected.delete(id); el.classList.remove('active'); }
+  else { negSelected.add(id); el.classList.add('active'); }
+}
+
+function getNegativePrompt() {
+  const custom = (document.getElementById('imgNeg')?.value || '').trim();
+  const presets = Array.from(negSelected).join(', ');
+  return [presets, custom].filter(Boolean).join(', ');
+}
+
+let _modelListLoaded = false;
+async function loadModelSelect() {
+  const sel = document.getElementById('imgModel');
+  const optSel = document.getElementById('imgOptModel');
+  if (!sel) return;
+  const current = sel.value;
+  const optCurrent = optSel ? optSel.value : '';
+  try {
+    const [modelResp, profileResp] = await Promise.all([
+      fetch('/v1/models', {headers: authHeaders()}),
+      fetch('/gateway/model-profiles', {headers: authHeaders()}),
+    ]);
+    const data = await modelResp.json();
+    const profileData = profileResp.ok ? await profileResp.json() : {slots:{}};
+    modelProfiles = profileData;
+    const imageDefault = profileData.slots?.image_default?.model || '';
+    const optimizeDefault = profileData.slots?.prompt_optimize?.model || profileData.slots?.chat_fast?.model || '';
+    const models = (data.data || []).map(m => m.id).filter(id => id !== 'unspecified');
+    const opts = models.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+    sel.innerHTML = opts;
+    if (optSel) optSel.innerHTML = opts;
+    // Restore previous selection, or default to persisted slots on first load
+    if (current && models.includes(current)) {
+      sel.value = current;
+    } else if (!_modelListLoaded) {
+      const fallback = imageDefault && models.includes(imageDefault)
+        ? imageDefault
+        : (models.find(m => m.includes('flash')) || models[0] || '');
+      if (fallback) sel.value = fallback;
+    }
+    if (optSel) {
+      if (optCurrent && models.includes(optCurrent)) {
+        optSel.value = optCurrent;
+      } else if (!_modelListLoaded) {
+        const fallback = optimizeDefault && models.includes(optimizeDefault)
+          ? optimizeDefault
+          : (models.find(m => m.includes('flash')) || models[0] || '');
+        if (fallback) optSel.value = fallback;
+      }
+    }
+    _modelListLoaded = true;
+  } catch(e) { console.error('Failed to load models:', e); }
+}
+function selectImgStyle(id) {
+  imgSelectedStyle = id;
+  document.querySelectorAll('#imgStyles .img-chip').forEach(el => el.classList.toggle('active', el.dataset.style === id));
+}
+function selectVidStyle(id) {
+  vidSelectedStyle = id;
+  document.querySelectorAll('#vidStyles .img-chip').forEach(el => el.classList.toggle('active', el.dataset.style === id));
+}
+function selectMusicStyle(id) {
+  musicSelectedStyle = id;
+  document.querySelectorAll('#musicStyles .img-chip').forEach(el => el.classList.toggle('active', el.dataset.style === id));
+}
+function selectImgRatio(id) {
+  imgSelectedRatio = id;
+  document.querySelectorAll('#imgRatios .img-chip').forEach(el => el.classList.toggle('active', el.dataset.ratio === id));
+}
+
+function updateImgGroupSelect() {
+  // Legacy — now using model selector instead
+}
+
+async function optimizePrompt(btn) {
+  const prompt = document.getElementById('imgPrompt').value.trim();
+  if (!prompt) { toast('请先输入提示词', 'err'); return; }
+  const activeTarget = activeStylePanel || 'img';
+  if (activeTarget !== 'img') { toast('提示词优化仅支持图片模式', 'err'); return; }
+  const model = document.getElementById('imgOptModel')?.value || document.getElementById('imgModel').value;
+
+  if (btn) { btn.disabled = true; btn.textContent = '✨ 优化中...'; }
+
+  // Image-only: collect style constraint
+  const styleId = imgSelectedStyle !== 'none' ? imgSelectedStyle : '';
+  let styleConstraint = 'extremely detailed, high fidelity detailing, pristine clean edges, smooth color gradients, like novelai quality.';
+  if (styleId) {
+    try {
+      const presetResp = await fetch('/gateway/style-presets', { headers: authHeaders() });
+      if (presetResp.ok) {
+        const presetData = await presetResp.json();
+        const preset = presetData.presets?.[styleId];
+        if (preset) {
+          styleConstraint = (preset.prefix || '') + '. ' + (preset.suffix || '');
+        }
+      }
+    } catch(e) { /* use default constraint */ }
+  }
+  const neg = getNegativePrompt();
+  const negLine = neg ? `\n\n必须排除的元素：${neg}` : '';
+  const userPrompt = `请你作为我的专业 AI 提示词工程师。
+
+我会给你一个简单的中文构思，请你帮我扩写成一段结构严谨、细节丰富的英文提示词。
+
+我的基本构思是：${prompt}
+
+我需要的特定风格和物理约束是：${styleConstraint}${negLine}
+
+请直接输出最终的英文提示词，并用逗号分隔各个核心元素。`;
+
+  try {
+    const resp = await fetch('/v1/chat/completions', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages: [
+        { role: 'user', content: userPrompt }
+      ], max_tokens: 400, temperature: 0.7 })
+    });
+    const data = await resp.json();
+    let optimized = data.choices?.[0]?.message?.content || '';
+    optimized = optimized.replace(/<think>[\s\S]*?<\/think>/g, '')
+      .replace(/\*\*/g, '').replace(/^#+\s.*/gm, '').replace(/^---$/gm, '')
+      .replace(/^[>\-\*]\s/gm, '').replace(/^```[\s\S]*?```$/gm, '')
+      .replace(/^(Prompt|提示词|Here|这是|以下|根据|为您|已为).*$/gm, '')
+      .replace(/!\[.*?\]\(.*?\)/g, '')
+      .replace(/\n{2,}/g, '\n').trim();
+    if (optimized) {
+      document.getElementById('imgPrompt').value = optimized;
+      // Style already fused into optimized prompt — switch to no-style to avoid double injection
+      selectImgStyle('none');
+      toast('提示词已优化', 'ok');
+    } else {
+      toast('优化失败：空响应', 'err');
+    }
+  } catch(e) {
+    toast('优化失败: ' + e.message, 'err');
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '✨ 优化提示词'; }
+}
+
+function doImgGen() {
+  const prompt = document.getElementById('imgPrompt').value.trim();
+  if (!prompt) return;
+  const quality = document.getElementById('imgQuality').value;
+  const neg = getNegativePrompt();
+  const style = imgSelectedStyle === 'none' ? null : imgSelectedStyle;
+  const size = imgSelectedRatio;
+  const model = document.getElementById('imgModel').value;
+  const dimsPrompt = getActiveDimsPrompt();
+  const finalPrompt = dimsPrompt ? prompt + '. ' + dimsPrompt : prompt;
+  const params = {prompt: finalPrompt, model, size, quality};
+  if (style) params.style = style;
+  if (neg) params.negative_prompt = neg;
+  if (uploadedImageB64) { params.image = uploadedImageB64; params.media_type = uploadedMediaType; }
+  TaskManager.create('image', params);
+  toast('🎨 图片生成已提交', 'ok');
+}
+
+function openImageFull(dataUrl) {
+  fetch(dataUrl).then(r => r.blob()).then(blob => {
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url);
+    if (win) win.addEventListener('load', () => URL.revokeObjectURL(url), {once: true});
+    else URL.revokeObjectURL(url);
+  });
+}
+
+function renderTempGrid() {
+  const grid = document.getElementById('imgTempGrid');
+  const cols = tempImages.length >= 4 ? 2 : Math.max(1, tempImages.length);
+  grid.className = `img-grid cols-${cols}`;
+  const proBtn = lastGenSessionId
+    ? `<button class="img-action-btn pro" onclick="event.stopPropagation();doProRedo()" title="用 Nano Banana Pro 精修">✨ Pro</button>`
+    : '';
+  grid.innerHTML = tempImages.map((img, i) => {
+    const src = 'data:image/png;base64,' + img.b64;
+    return `<div class="img-card">
+      <img src="${src}" onclick="openImageFull(this.src)" title="点击查看大图">
+      <div class="img-card-actions">
+        ${i === 0 ? proBtn : ''}
+        <button class="img-action-btn save" onclick="event.stopPropagation();saveTempImage(${i})">💾 保存</button>
+        <a class="img-action-btn dl" download="gemini-${Date.now()}-${i+1}.png" href="${src}" onclick="event.stopPropagation()">⬇ 下载</a>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function doProRedo() {
+  if (!lastGenSessionId) { toast('无可精修的会话', 'err'); return; }
+  const btn = document.querySelector('.img-action-btn.pro');
+  if (btn) { btn.disabled = true; btn.innerHTML = '✨ 精修中...'; }
+  const info = document.getElementById('imgTempInfo');
+  const origInfo = info ? info.textContent : '';
+  if (info) info.textContent = '🔮 Pro 精修中，预计 30-120 秒...';
+  const start = Date.now();
+  try {
+    const lastImg = tempImages[0];
+    const body = {
+      prompt: lastImg ? lastImg.final_prompt || lastImg.prompt : '',
+      session_id: lastGenSessionId,
+      use_pro: true,
+      model: lastImg ? lastImg.channel : 'gemini-3.0-flash',
+    };
+    const resp = await fetch('/v1/images/generations', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await resp.json();
+    const sec = ((Date.now() - start) / 1000).toFixed(1);
+    if (data.data && data.data.length > 0 && data.data[0].b64_json) {
+      const lastImg0 = tempImages[0] || {};
+      tempImages = data.data.map((d, i) => ({
+        b64: d.b64_json, prompt: lastImg0.prompt || '', final_prompt: data.final_prompt || lastImg0.final_prompt || '',
+        style: lastImg0.style, size: lastImg0.size, quality: 'pro', channel: lastImg0.channel, index: i
+      }));
+      if (data.session_id) lastGenSessionId = data.session_id;
+      else lastGenSessionId = null; // Pro done, no further redo
+      if (info) info.textContent = `${sec}s · Pro 精修 · ${tempImages.length} 张`;
+      renderTempGrid();
+    } else {
+      const errMsg = data.detail || data.error?.message || 'Pro 精修失败';
+      toast(errMsg, 'err');
+      if (info) info.textContent = origInfo;
+      if (btn) { btn.disabled = false; btn.innerHTML = '✨ Pro'; }
+    }
+  } catch(e) {
+    toast('Pro 精修请求失败: ' + e.message, 'err');
+    if (info) info.textContent = origInfo;
+    if (btn) { btn.disabled = false; btn.innerHTML = '✨ Pro'; }
+  }
+}
+
+async function saveTempImage(index) {
+  const img = tempImages[index];
+  if (!img) return;
+  try {
+    const resp = await fetch('/gateway/images/save', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ b64: img.b64, prompt: img.prompt, final_prompt: img.final_prompt || '', style: img.style, size: img.size, quality: img.quality, channel: img.channel })
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      toast('已保存到项目图库', 'ok');
+      loadGallery();
+    } else { toast(data.detail || '保存失败', 'err'); }
+  } catch(e) { toast('保存失败: ' + e.message, 'err'); }
+}
+
+async function saveAllTemp() {
+  for (let i = 0; i < tempImages.length; i++) await saveTempImage(i);
+}
+
+function downloadAllTemp() {
+  document.querySelectorAll('#imgTempGrid a.img-action-btn.dl').forEach(a => a.click());
+}
+
+// ── Image Upload + Edit ───────────────────────────────────
+let uploadedImageB64 = null;
+let uploadedMediaType = 'image'; // 'image', 'video', or 'audio'
+let uploadedFileName = '';
+let uploadedMimeType = '';
+let editSessionId = null;
+let lastGenSessionId = null; // session_id from last generation (for Pro redo)
+let activeAbortController = null;
+
+function showCancelBtn() { /* no-op: tasks manage their own cancel via tab × */ }
+function hideCancelBtn() { /* no-op */ }
+function cancelImgRequest() {
+  if (activeAbortController) { activeAbortController.abort(); activeAbortController = null; }
+  hideCancelBtn();
+  toast('已取消请求', 'ok');
+}
+
+function handleImageSelect(input) {
+  if (input.files && input.files[0]) readUploadFile(input.files[0]);
+}
+function handleImageDrop(e) {
+  // Support drag from gallery
+  const galleryData = e.dataTransfer.getData('text/plain');
+  if (galleryData && galleryData.startsWith('gallery:')) {
+    const filename = galleryData.replace('gallery:', '');
+    loadGalleryImageToEdit(filename);
+    return;
+  }
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) readUploadFile(e.dataTransfer.files[0]);
+}
+function setEditImage(b64, info) {
+  uploadedImageB64 = b64;
+  editSessionId = null;
+  const img = document.getElementById('imgPreviewImg');
+  img.src = 'data:image/png;base64,' + b64;
+  document.getElementById('imgUploadPreview').style.display = '';
+  document.getElementById('imgUploadEmpty').style.display = 'none';
+  document.getElementById('editSessionInfo').style.display = 'none';
+  document.getElementById('imgFileInfo').innerHTML = info || '';
+  switchStudioMenu();
+  // Scroll to edit area
+  document.getElementById('imgUploadArea').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function readUploadFile(file) {
+  const isImage = file.type.startsWith('image/');
+  const isVideo = file.type.startsWith('video/');
+  const isAudio = file.type.startsWith('audio/');
+  if (!isImage && !isVideo && !isAudio) { toast('请上传图片、视频或音频文件', 'err'); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const b64 = e.target.result.split(',')[1];
+    const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+    uploadedFileName = file.name || '';
+    uploadedMimeType = file.type || '';
+    if (isAudio) {
+      uploadedMediaType = 'audio';
+      uploadedImageB64 = b64;
+      editSessionId = null;
+      const preview = document.getElementById('imgUploadPreview');
+      const img = document.getElementById('imgPreviewImg');
+      img.style.display = 'none';
+      // Remove old video/audio preview if exists
+      const oldVid = document.getElementById('vidPreviewPlayer');
+      if (oldVid) oldVid.remove();
+      const oldAud = document.getElementById('audPreviewPlayer');
+      if (oldAud) oldAud.remove();
+      const aud = document.createElement('audio');
+      aud.id = 'audPreviewPlayer';
+      aud.controls = true;
+      aud.style.cssText = 'width:100%;display:block;margin:0.5rem 0';
+      aud.src = e.target.result;
+      img.parentNode.insertBefore(aud, img);
+      preview.style.display = '';
+      document.getElementById('imgUploadEmpty').style.display = 'none';
+      document.getElementById('editSessionInfo').style.display = 'none';
+      document.getElementById('imgFileInfo').innerHTML = `<b>${esc(file.name)}</b><br>🎵 音频 · ${sizeMB} MB`;
+      updateButtonsForMediaType();
+    } else if (isVideo) {
+      uploadedMediaType = 'video';
+      uploadedImageB64 = b64;
+      editSessionId = null;
+      const preview = document.getElementById('imgUploadPreview');
+      const img = document.getElementById('imgPreviewImg');
+      img.style.display = 'none';
+      // Remove old video/audio preview if exists
+      const oldVid = document.getElementById('vidPreviewPlayer');
+      if (oldVid) oldVid.remove();
+      const oldAud = document.getElementById('audPreviewPlayer');
+      if (oldAud) oldAud.remove();
+      const vid = document.createElement('video');
+      vid.id = 'vidPreviewPlayer';
+      vid.controls = true;
+      vid.style.cssText = 'width:100%;max-height:500px;border-radius:6px;display:block';
+      vid.src = e.target.result;
+      img.parentNode.insertBefore(vid, img);
+      preview.style.display = '';
+      document.getElementById('imgUploadEmpty').style.display = 'none';
+      document.getElementById('editSessionInfo').style.display = 'none';
+      document.getElementById('imgFileInfo').innerHTML = `<b>${esc(file.name)}</b><br>🎬 视频 · ${sizeMB} MB`;
+      updateButtonsForMediaType();
+    } else {
+      uploadedMediaType = 'image';
+      const tmpImg = new Image();
+      tmpImg.onload = () => {
+        // Make sure image preview is visible, remove video/audio preview
+        const oldVid = document.getElementById('vidPreviewPlayer');
+        if (oldVid) oldVid.remove();
+        const oldAud = document.getElementById('audPreviewPlayer');
+        if (oldAud) oldAud.remove();
+        document.getElementById('imgPreviewImg').style.display = '';
+        setEditImage(b64, `<b>${esc(file.name)}</b><br>${tmpImg.naturalWidth} × ${tmpImg.naturalHeight} · ${sizeMB} MB`);
+        updateButtonsForMediaType();
+      };
+      tmpImg.src = e.target.result;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+function clearUploadImage() {
+  uploadedImageB64 = null;
+  uploadedMediaType = 'image';
+  uploadedFileName = '';
+  uploadedMimeType = '';
+  editSessionId = null;
+  document.getElementById('imgUploadPreview').style.display = 'none';
+  document.getElementById('imgUploadEmpty').style.display = '';
+  document.getElementById('imgFileInput').value = '';
+  document.getElementById('editSessionInfo').style.display = 'none';
+  document.getElementById('imgPreviewImg').style.display = '';
+  const oldVid = document.getElementById('vidPreviewPlayer');
+  if (oldVid) oldVid.remove();
+  const oldAud = document.getElementById('audPreviewPlayer');
+  if (oldAud) oldAud.remove();
+  updateButtonsForMediaType();
+}
+function updateButtonsForMediaType() {
+  switchStudioMenu();
+}
+// ── Task Manager ─────────────────────────────────────────
+const TASK_ICONS = {image: '🎨', video: '🎬', music: '🎵'};
+const TASK_LABELS = {image: '图片', video: '视频', music: '音乐'};
+
+const TaskManager = {
+  tasks: new Map(),
+  counter: {image: 0, video: 0, music: 0},
+  activeTaskId: null,
+
+  async create(type, params) {
+    this.counter[type]++;
+    const label = `${TASK_LABELS[type]} #${this.counter[type]}`;
+
+    try {
+      const resp = await fetch('/v1/tasks/create', {
+        method: 'POST',
+        headers: {...authHeaders(), 'Content-Type': 'application/json'},
+        body: JSON.stringify({task_type: type, ...params}),
+      });
+      const {task_id} = await resp.json();
+
+      const task = {id: task_id, type, label, status: 'pending', events: [], result: null, error: null};
+      this.tasks.set(task_id, task);
+
+      // Show result zone and create tab + panel
+      document.getElementById('resultZone').style.display = '';
+      this._createTabAndPanel(task);
+      this._switchTo(task_id);
+      this._connectSSE(task_id);
+    } catch (e) {
+      toast('任务创建失败: ' + e.message, 'err');
+    }
+  },
+
+  cancel(taskId) {
+    fetch(`/v1/tasks/${taskId}/cancel`, {method: 'POST', headers: authHeaders()});
+    const task = this.tasks.get(taskId);
+    if (task) { task.status = 'cancelled'; this._updateTab(taskId); }
+  },
+
+  close(taskId) {
+    const task = this.tasks.get(taskId);
+    if (task && task.status === 'pending') this.cancel(taskId);
+    // Remove tab and panel
+    document.getElementById(`taskTab_${taskId}`)?.remove();
+    document.getElementById(`taskPanel_${taskId}`)?.remove();
+    this.tasks.delete(taskId);
+    // Switch to another tab or hide zone
+    if (this.tasks.size === 0) {
+      document.getElementById('resultZone').style.display = 'none';
+      this.activeTaskId = null;
+    } else if (this.activeTaskId === taskId) {
+      const firstId = this.tasks.keys().next().value;
+      this._switchTo(firstId);
+    }
+  },
+
+  _createTabAndPanel(task) {
+    const bar = document.getElementById('taskTabBar');
+    const panels = document.getElementById('taskPanels');
+    // Tab
+    const tab = document.createElement('button');
+    tab.className = 'task-tab';
+    tab.id = `taskTab_${task.id}`;
+    tab.innerHTML = `${TASK_ICONS[task.type]} <span class="task-label">${task.label}</span> <span class="task-status-dot" style="animation:taskPulse 1s infinite">⏳</span> <span class="task-close" onclick="event.stopPropagation();TaskManager.close('${task.id}')">&times;</span>`;
+    tab.onclick = () => this._switchTo(task.id);
+    bar.appendChild(tab);
+    // Panel
+    const panel = document.createElement('div');
+    panel.id = `taskPanel_${task.id}`;
+    panel.style.display = 'none';
+    panel.innerHTML = `<div class="task-timeline" id="taskTL_${task.id}">等待中...</div><div id="taskResult_${task.id}"></div>`;
+    panels.appendChild(panel);
+  },
+
+  _switchTo(taskId) {
+    // Deactivate all, activate target
+    document.querySelectorAll('.task-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('#taskPanels > div').forEach(p => p.style.display = 'none');
+    const tab = document.getElementById(`taskTab_${taskId}`);
+    const panel = document.getElementById(`taskPanel_${taskId}`);
+    if (tab) tab.classList.add('active');
+    if (panel) panel.style.display = '';
+    this.activeTaskId = taskId;
+  },
+
+  async _connectSSE(taskId) {
+    const task = this.tasks.get(taskId);
+    if (!task) return;
+    try {
+      const resp = await fetch(`/v1/tasks/${taskId}/stream`, {headers: authHeaders()});
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, {stream: true});
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop();
+        for (const part of parts) {
+          if (!part.startsWith('data: ')) continue;
+          try {
+            const event = JSON.parse(part.slice(6));
+            task.events.push(event);
+            this._handleEvent(taskId, event);
+          } catch {}
+        }
+      }
+    } catch (e) {
+      if (task.status === 'pending') {
+        task.status = 'failed';
+        task.error = 'SSE 连接断开';
+        this._updateTab(taskId);
+        this._updateTimeline(taskId);
+      }
+    }
+  },
+
+  _handleEvent(taskId, event) {
+    const task = this.tasks.get(taskId);
+    if (!task) return;
+    if (event.type === 'start') { task.status = 'running'; }
+    else if (event.type === 'success') {
+      task.status = 'success'; task.result = event.result;
+      this._renderResult(taskId);
+    }
+    else if (event.type === 'failed') { task.status = 'failed'; task.error = event.error; }
+    else if (event.type === 'cancelled') { task.status = 'cancelled'; }
+    this._updateTab(taskId);
+    this._updateTimeline(taskId);
+  },
+
+  _updateTab(taskId) {
+    const task = this.tasks.get(taskId);
+    const tab = document.getElementById(`taskTab_${taskId}`);
+    if (!task || !tab) return;
+    const dot = tab.querySelector('.task-status-dot');
+    const statusMap = {
+      pending: ['⏳', 'animation:taskPulse 1s infinite'],
+      running: ['⏳', 'animation:taskPulse 1s infinite'],
+      success: ['✓', 'color:var(--success);animation:none'],
+      failed: ['✗', 'color:var(--danger);animation:none'],
+      cancelled: ['⊘', 'color:var(--text-muted);animation:none'],
+    };
+    const [icon, style] = statusMap[task.status] || ['?', ''];
+    dot.textContent = icon;
+    dot.style.cssText = style;
+  },
+
+  _updateTimeline(taskId) {
+    const task = this.tasks.get(taskId);
+    const el = document.getElementById(`taskTL_${taskId}`);
+    if (!task || !el) return;
+    let html = '';
+    for (const ev of task.events) {
+      if (html) html += '<span class="tl-arrow">→</span>';
+      if (ev.type === 'start') html += `<span class="tl-step">就绪 (${ev.retries_available} 个容器可用)</span>`;
+      else if (ev.type === 'trying') html += `<span class="tl-step tl-trying">${esc(ev.container)} 请求中...</span>`;
+      else if (ev.type === 'retry') html += `<span class="tl-step tl-error">${esc(ev.container)} 失败: ${esc(ev.error?.substring(0,40) || '')}</span>`;
+      else if (ev.type === 'success') html += `<span class="tl-step tl-success">${esc(ev.container)} ✓</span>`;
+      else if (ev.type === 'failed') html += `<span class="tl-step tl-error">全部失败: ${esc(ev.error?.substring(0,60) || '')}</span>`;
+      else if (ev.type === 'cancelled') html += `<span class="tl-step">已取消</span>`;
+    }
+    el.innerHTML = html || '等待中...';
+  },
+
+  _renderResult(taskId) {
+    const task = this.tasks.get(taskId);
+    const el = document.getElementById(`taskResult_${taskId}`);
+    if (!task?.result || !el) return;
+    const data = task.result;
+    if (task.type === 'image') this._renderImageResult(el, data, taskId);
+    else if (task.type === 'video') this._renderVideoResult(el, data, taskId);
+    else if (task.type === 'music') this._renderMusicResult(el, data, taskId);
+  },
+
+  _renderImageResult(el, data, taskId) {
+    if (!data.data?.length) { el.innerHTML = `<div style="color:var(--danger);padding:0.5rem">${esc(data.detail || '未生成图片')}</div>`; return; }
+    // Store for download and Pro redo
+    window[`_taskImgs_${taskId}`] = data.data;
+    window[`_taskSession_${taskId}`] = data.session_id || null;
+    window[`_taskPrompt_${taskId}`] = data.final_prompt || '';
+    let html = `<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.3rem">${data.data.length} 张图片</div>`;
+    if (data.session_id) {
+      html += `<div style="margin-bottom:0.4rem"><button class="img-action-btn pro" onclick="TaskManager._proRedo('${taskId}')" style="font-size:0.76rem">✨ Pro 精修</button></div>`;
+    }
+    html += '<div class="img-grid cols-2">';
+    data.data.forEach((img, i) => {
+      if (img.b64_json) {
+        html += `<div class="img-card"><img src="data:image/png;base64,${img.b64_json}" style="width:100%;border-radius:6px;cursor:pointer" onclick="openImageFull(this.src)">`;
+        html += `<div style="display:flex;gap:0.3rem;margin-top:0.3rem">`;
+        html += `<a class="img-action-btn dl" href="data:image/png;base64,${img.b64_json}" download="img_${Date.now()}_${i}.png" style="flex:1;text-align:center;text-decoration:none">⬇</a>`;
+        html += `<button class="img-action-btn" onclick="TaskManager._saveImage('${taskId}',${i})" style="flex:1">💾 图库</button>`;
+        html += `<button class="img-action-btn" onclick="TaskManager._useImageAsMaterial('${taskId}',${i})" style="flex:1">✏️ 编辑</button>`;
+        html += `</div></div>`;
+      } else if (img.url) {
+        html += `<div class="img-card"><img src="${img.url}" style="width:100%;border-radius:6px;cursor:pointer" onclick="openImageFull(this.src)" onerror="this.style.display='none';this.nextElementSibling.style.display=''">`;
+        html += `<div style="display:none;padding:0.5rem;color:var(--warning);font-size:0.78rem">⚠️ 图片加载失败，链接可能已过期</div>`;
+        html += `<div style="display:flex;gap:0.3rem;margin-top:0.3rem">`;
+        html += `<a class="img-action-btn dl" href="${img.url}" target="_blank" style="flex:1;text-align:center;text-decoration:none">🔗 打开原始链接</a>`;
+        html += `</div></div>`;
+      }
+    });
+    html += '</div>';
+    if (data.text) html += `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.3rem">${esc(data.text.substring(0, 200))}</div>`;
+    el.innerHTML = html;
+  },
+
+  _renderVideoResult(el, data, taskId) {
+    if (!data.data?.length) { el.innerHTML = `<div style="color:var(--danger);padding:0.5rem">${esc(data.detail || '未生成视频')}</div>`; return; }
+    window[`_taskVids_${taskId}`] = data.data;
+    let html = '';
+    data.data.forEach((v, i) => {
+      html += '<div style="background:var(--surface);border-radius:var(--radius-sm);padding:0.6rem;border:1px solid var(--border);margin-bottom:0.5rem">';
+      if (v.b64_json) {
+        html += `<video controls style="width:100%;border-radius:6px;max-height:400px" src="data:video/mp4;base64,${v.b64_json}"></video>`;
+        html += '<div style="display:flex;gap:0.4rem;margin-top:0.4rem">';
+        html += `<a class="img-action-btn dl" href="data:video/mp4;base64,${v.b64_json}" download="video_${Date.now()}.mp4" style="flex:1;text-align:center;text-decoration:none">⬇ 下载</a>`;
+        html += `<button class="img-action-btn" onclick="TaskManager._saveVideo('${taskId}',${i})" style="flex:1">💾 视频库</button>`;
+        html += `<button class="img-action-btn" onclick="TaskManager._useVideoAsMaterial('${taskId}',${i})" style="flex:1">✏️ 编辑</button>`;
+        html += '</div>';
+      } else if (v.url) {
+        html += `<div style="padding:0.5rem;color:var(--warning);font-size:0.82rem">⚠️ 视频下载失败 — 原始链接需要 Google 登录态，可能无法直接访问</div>`;
+        html += '<div style="display:flex;gap:0.4rem;margin-top:0.4rem">';
+        html += `<a class="img-action-btn dl" href="${v.url}" target="_blank" style="flex:1;text-align:center;text-decoration:none">🔗 尝试打开（需登录）</a>`;
+        html += '</div>';
+      }
+      html += '</div>';
+    });
+    if (data.text) html += `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.3rem">${esc(data.text.substring(0, 200))}</div>`;
+    el.innerHTML = html;
+  },
+
+  _renderMusicResult(el, data, taskId) {
+    if (!data.data?.length) { el.innerHTML = `<div style="color:var(--danger);padding:0.5rem">${esc(data.detail || '未生成音乐')}</div>`; return; }
+    const m = data.data[0];
+    window[`_taskMusic_${taskId}`] = m;
+    let html = '<div style="background:var(--surface);border-radius:var(--radius-sm);padding:0.6rem;border:1px solid var(--border)">';
+    if (m.audio_b64) html += `<div style="margin-bottom:0.5rem"><div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:0.3rem">🎧 音频</div><audio controls style="width:100%" src="data:audio/mpeg;base64,${m.audio_b64}"></audio></div>`;
+    if (m.video_b64) html += `<div style="margin-bottom:0.5rem"><div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:0.3rem">🎬 音乐视频</div><video controls style="width:100%;border-radius:6px;max-height:300px" src="data:video/mp4;base64,${m.video_b64}"></video></div>`;
+    html += '<div style="display:flex;gap:0.4rem;margin-top:0.4rem">';
+    if (m.audio_b64) html += `<a class="img-action-btn dl" href="data:audio/mpeg;base64,${m.audio_b64}" download="music_${Date.now()}.mp3" style="flex:1;text-align:center;text-decoration:none">⬇ MP3</a>`;
+    if (m.video_b64) html += `<a class="img-action-btn dl" href="data:video/mp4;base64,${m.video_b64}" download="music_${Date.now()}.mp4" style="flex:1;text-align:center;text-decoration:none">⬇ MP4</a>`;
+    if (m.audio_b64) html += `<button class="img-action-btn" onclick="TaskManager._saveAudio('${taskId}')" style="flex:1">💾 音频库</button>`;
+    if (m.audio_b64) html += `<button class="img-action-btn" onclick="TaskManager._useMusicAsMaterial('${taskId}')" style="flex:1">✏️ 编辑</button>`;
+    html += '</div></div>';
+    if (data.text) html += `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.3rem">${esc(data.text.substring(0, 200))}</div>`;
+    el.innerHTML = html;
+  },
+
+  async _proRedo(taskId) {
+    const sessionId = window[`_taskSession_${taskId}`];
+    if (!sessionId) { toast('无可精修的会话', 'err'); return; }
+    const imgs = window[`_taskImgs_${taskId}`];
+    const prompt = window[`_taskPrompt_${taskId}`] || '';
+    const model = imgs?.[0]?.channel || 'gemini-3.0-flash';
+    // Submit as new task with session_id + use_pro
+    const params = { prompt, session_id: sessionId, use_pro: true, model };
+    TaskManager.create('image', params);
+    toast('✨ Pro 精修已提交', 'ok');
+  },
+
+  async _saveImage(taskId, idx) {
+    const imgs = window[`_taskImgs_${taskId}`];
+    if (!imgs?.[idx]?.b64_json) return;
+    try {
+      const resp = await fetch('/gateway/images/save', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ b64: imgs[idx].b64_json, prompt: '', final_prompt: '', style: '', size: '', quality: '', channel: '' })
+      });
+      const data = await resp.json();
+      if (data.ok) { toast('已保存到图库', 'ok'); loadGallery(); }
+      else { toast(data.detail || '保存失败', 'err'); }
+    } catch(e) { toast('保存失败: ' + e.message, 'err'); }
+  },
+
+  async _saveVideo(taskId, idx) {
+    const vids = window[`_taskVids_${taskId}`];
+    const b64 = vids?.[idx]?.b64_json;
+    if (!b64) { toast('无视频数据', 'err'); return; }
+    try {
+      const resp = await fetch('/gateway/videos/save', {
+        method: 'POST', headers: {...authHeaders(), 'Content-Type': 'application/json'},
+        body: JSON.stringify({ b64, prompt: '' })
+      });
+      const data = await resp.json();
+      if (data.ok) { toast('已保存到视频库', 'ok'); loadVideoGallery(); }
+      else { toast(data.detail || '保存失败', 'err'); }
+    } catch(e) { toast('保存失败: ' + e.message, 'err'); }
+  },
+
+  async _saveAudio(taskId) {
+    const m = window[`_taskMusic_${taskId}`];
+    if (!m?.audio_b64 && !m?.video_b64) { toast('无音频数据', 'err'); return; }
+    try {
+      const body = { prompt: '' };
+      if (m.audio_b64) { body.b64 = m.audio_b64; body.filename = 'music.mp3'; body.mime_type = 'audio/mpeg'; }
+      if (m.video_b64) { body.b64_alt = m.video_b64; body.filename_alt = 'music.mp4'; body.mime_type_alt = 'video/mp4'; }
+      if (!body.b64 && body.b64_alt) { body.b64 = body.b64_alt; body.filename = body.filename_alt; body.mime_type = body.mime_type_alt; delete body.b64_alt; delete body.filename_alt; delete body.mime_type_alt; }
+      const resp = await fetch('/gateway/audio/save', {
+        method: 'POST', headers: {...authHeaders(), 'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      });
+      const data = await resp.json();
+      if (data.ok) { toast('已保存到音频库', 'ok'); loadAudioGallery(); }
+      else { toast(data.detail || '保存失败', 'err'); }
+    } catch(e) { toast('保存失败: ' + e.message, 'err'); }
+  },
+
+  _useImageAsMaterial(taskId, idx) {
+    const imgs = window[`_taskImgs_${taskId}`];
+    if (!imgs?.[idx]?.b64_json) return;
+    uploadedImageB64 = imgs[idx].b64_json;
+    uploadedMediaType = 'image';
+    editSessionId = null;
+    const oldVid = document.getElementById('vidPreviewPlayer'); if (oldVid) oldVid.remove();
+    const oldAud = document.getElementById('audPreviewPlayer'); if (oldAud) oldAud.remove();
+    document.getElementById('imgPreviewImg').style.display = '';
+    setEditImage(imgs[idx].b64_json, '从任务结果加载 · 🎨 图片');
+    toast('图片已加载到素材区', 'ok');
+  },
+  _useVideoAsMaterial(taskId, idx) {
+    const vids = window[`_taskVids_${taskId}`];
+    if (!vids?.[idx]?.b64_json) return;
+    useVideoAsMaterial_b64(vids[idx].b64_json);
+  },
+  _useMusicAsMaterial(taskId) {
+    const m = window[`_taskMusic_${taskId}`];
+    if (!m?.audio_b64 && !m?.video_b64) return;
+    if (m.video_b64) { useMusicAsMaterial_b64(m.video_b64, true); }
+    else { useMusicAsMaterial_b64(m.audio_b64, false); }
+  },
+};
+
+function useVideoAsMaterial_b64(b64) {
+  uploadedImageB64 = b64; uploadedMediaType = 'video'; editSessionId = null;
+  const preview = document.getElementById('imgUploadPreview');
+  const img = document.getElementById('imgPreviewImg'); img.style.display = 'none';
+  const oldVid = document.getElementById('vidPreviewPlayer'); if (oldVid) oldVid.remove();
+  const oldAud = document.getElementById('audPreviewPlayer'); if (oldAud) oldAud.remove();
+  const vid = document.createElement('video'); vid.id = 'vidPreviewPlayer'; vid.controls = true;
+  vid.style.cssText = 'width:100%;max-height:500px;border-radius:6px;display:block';
+  vid.src = 'data:video/mp4;base64,' + b64;
+  img.parentNode.insertBefore(vid, img);
+  preview.style.display = ''; document.getElementById('imgUploadEmpty').style.display = 'none';
+  document.getElementById('imgFileInfo').innerHTML = '从任务结果加载 · 🎬 视频';
+  updateButtonsForMediaType();
+  document.getElementById('imgUploadArea').scrollIntoView({behavior:'smooth',block:'center'});
+  toast('视频已加载到素材区', 'ok');
+}
+
+function useMusicAsMaterial_b64(b64, isVideo) {
+  uploadedImageB64 = b64; uploadedMediaType = 'audio'; editSessionId = null;
+  const preview = document.getElementById('imgUploadPreview');
+  const img = document.getElementById('imgPreviewImg'); img.style.display = 'none';
+  const oldVid = document.getElementById('vidPreviewPlayer'); if (oldVid) oldVid.remove();
+  const oldAud = document.getElementById('audPreviewPlayer'); if (oldAud) oldAud.remove();
+  if (isVideo) {
+    const vid = document.createElement('video'); vid.id = 'vidPreviewPlayer'; vid.controls = true;
+    vid.style.cssText = 'width:100%;max-height:500px;border-radius:6px;display:block';
+    vid.src = 'data:video/mp4;base64,' + b64;
+    img.parentNode.insertBefore(vid, img);
+    document.getElementById('imgFileInfo').innerHTML = '从音频库加载 · 🎵 音乐视频';
+  } else {
+    const aud = document.createElement('audio'); aud.id = 'audPreviewPlayer'; aud.controls = true;
+    aud.style.cssText = 'width:100%;display:block;margin:0.5rem 0';
+    aud.src = 'data:audio/mpeg;base64,' + b64;
+    img.parentNode.insertBefore(aud, img);
+    document.getElementById('imgFileInfo').innerHTML = '从音频库加载 · 🎵 音频';
+  }
+  preview.style.display = ''; document.getElementById('imgUploadEmpty').style.display = 'none';
+  updateButtonsForMediaType();
+  document.getElementById('imgUploadArea').scrollIntoView({behavior:'smooth',block:'center'});
+  toast('已加载到素材区', 'ok');
+}
+function switchStudioMenu() {
+  const hasMaterial = !!uploadedImageB64;
+  document.getElementById('menuCreate').style.display = hasMaterial ? 'none' : '';
+  document.getElementById('menuEdit').style.display = hasMaterial ? '' : 'none';
+}
+function doEditTo(target) {
+  if (!uploadedImageB64) { toast('请先上传素材', 'err'); return; }
+  const prompt = document.getElementById('imgPrompt').value.trim();
+  if (!prompt) { toast('请输入编辑指令', 'err'); return; }
+  if (target === 'image') doImgEdit();
+  else if (target === 'video') doVidGen();
+  else if (target === 'music') doMusicGen();
+}
+
+// Load gallery image into edit zone
+async function loadGalleryImageToEdit(filename) {
+  try {
+    const resp = await fetch(`/data/images/${filename}`);
+    const blob = await resp.blob();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const b64 = e.target.result.split(',')[1];
+      const tmpImg = new Image();
+      tmpImg.onload = () => {
+        setEditImage(b64, `从图库加载 · ${tmpImg.naturalWidth} × ${tmpImg.naturalHeight}`);
+        toast('已加载到编辑区', 'ok');
+      };
+      tmpImg.src = e.target.result;
+    };
+    reader.readAsDataURL(blob);
+  } catch(e) { toast('加载失败: ' + e.message, 'err'); }
+}
+
+// Save currently displayed image to gallery
+async function saveUploadedToGallery() {
+  if (!uploadedImageB64) { toast('没有素材可保存', 'err'); return; }
+  const prompt = document.getElementById('imgPrompt').value.trim() || '手动上传';
+  try {
+    if (uploadedMediaType === 'audio') {
+      const resp = await fetch('/gateway/audio/save', {
+        method: 'POST', headers: {...authHeaders(), 'Content-Type': 'application/json'},
+        body: JSON.stringify({ b64: uploadedImageB64, prompt, filename: uploadedFileName || '', mime_type: uploadedMimeType || '' })
+      });
+      const data = await resp.json();
+      if (data.ok) { toast('已保存到音频库', 'ok'); loadAudioGallery(); }
+      else { toast(data.detail || '保存失败', 'err'); }
+    } else if (uploadedMediaType === 'video') {
+      const resp = await fetch('/gateway/videos/save', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ b64: uploadedImageB64, prompt, model: '', url: '' })
+      });
+      const data = await resp.json();
+      if (data.ok) { toast('已保存到视频库', 'ok'); loadVideoGallery(); }
+      else { toast(data.detail || '保存失败', 'err'); }
+    } else {
+      const resp = await fetch('/gateway/images/save', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ b64: uploadedImageB64, prompt, final_prompt: '', style: '', size: '', quality: '', channel: '' })
+      });
+      const data = await resp.json();
+      if (data.ok) { toast('已保存到图库', 'ok'); loadGallery(); }
+      else { toast(data.detail || '保存失败', 'err'); }
+    }
+  } catch(e) { toast('保存失败: ' + e.message, 'err'); }
+}
+
+// Edit image/video/audio: route to appropriate endpoint based on media type
+function doImgEdit() {
+  const prompt = document.getElementById('imgPrompt').value.trim();
+  if (!prompt) { toast('请输入编辑指令', 'err'); return; }
+  if (!uploadedImageB64) { toast('请先上传素材', 'err'); return; }
+
+  // Audio editing goes to music endpoint
+  if (uploadedMediaType === 'audio') {
+    document.getElementById('imgPrompt').value = prompt;
+    doMusicGen();
+    return;
+  }
+
+  const model = document.getElementById('imgModel').value;
+  const params = {prompt, model};
+  if (editSessionId) {
+    params.session_id = editSessionId;
+  } else {
+    params.image = uploadedImageB64; params.media_type = uploadedMediaType;
+  }
+  TaskManager.create('image', params);
+  toast('🎨 图片编辑已提交', 'ok');
+}
+
+// ── Style Templates ────────────────────────────────────────
+const DIM_LABELS = {physical:'✒️ 物理约束',negative:'🚫 排除',quality:'🏆 质量锚点',style:'🎨 风格氛围',content:'👤 内容描述'};
+let savedStyles = [];
+let activeDims = {}; // key: "templateId:dimKey" → value string
+
+async function analyzeStyle() {
+  if (!uploadedImageB64) { toast('请先上传图片或视频', 'err'); return; }
+  if (uploadedMediaType === 'audio') { toast('音频不支持风格解析', 'err'); return; }
+  const model = document.getElementById('imgOptModel')?.value || document.getElementById('imgModel').value;
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true; btn.textContent = '🔍 解析中...';
+
+  const sysPrompt = `You are an expert at analyzing images and writing structured prompts for Google Gemini image generation. Analyze this image using a 5-layer reverse engineering approach.
+
+For each layer, ask yourself:
+1. Line quality (Physical): Are the lines ultra-fine or varied? Are edges clean and sharp?
+2. Coloring style (Quality/Style): Smooth cel-shading or thick painterly strokes?
+3. Core subject (Content): Character features, poses, interactions, composition?
+4. Environment & mood (Style): Background elements, dominant colors, light sources?
+5. What is NOT in this image (Negative): No bold outlines? No gritty textures? No western comic style?
+
+Return a JSON object with these 5 keys:
+
+{
+  "physical": "(Physical constraints: line weight, edge quality, detail precision. Example: fine delicate line art, minimal line weight, pristine clean edges, precise and sharp outlines, high-fidelity detailing on hair strands and delicate features.)",
+  "negative": "(What to exclude — elements that would break this style. Start with 排除：. Example: 排除：bold lines, thick outlines, heavy strokes, messy linework, gritty textures, western comic book style bold outlines.)",
+  "quality": "(Quality anchors — reference the highest standard this style matches. Example: Masterpiece, best quality, like novelai quality, intricate digital illustration quality, 8k resolution, flawless professional-level rendering.)",
+  "style": "(Atmosphere, lighting, color palette, mood. Example: High-end Korean webtoon style with a clean and polished look, cinematic lighting with dominant soft blue glows, holographic reflections, intensely romantic yet tense atmosphere.)",
+  "content": "(Detailed description of everything visible: characters, clothing, hair, expression, pose, background objects, spatial arrangement. Be specific — 50-80 words. Example: A cool, beautiful female doctor with long silver-purple hair and glasses, wearing a black blouse and white lab coat, intensely close to a young male patient with dark hair who is blushing and sweating, leaning against a glowing laboratory wall panel surrounded by holographic screens.)"
+}
+
+RULES:
+- The "physical" and "negative" layers are the most important — they control rendering quality.
+- "content" must describe EVERYTHING visible in detail — this is what makes reproductions accurate.
+- Use terminology from high-quality digital art tags.
+- Return ONLY the JSON.`;
+
+  try {
+    const resp = await fetch('/v1/chat/completions', {
+      method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages: [
+        { role: 'system', content: sysPrompt },
+        { role: 'user', content: [
+          { type: 'image_url', image_url: { url: `data:${uploadedMediaType === 'video' ? 'video/mp4' : 'image/png'};base64,${uploadedImageB64}` } },
+          { type: 'text', text: uploadedMediaType === 'video' ? 'Analyze this video\'s visual style.' : 'Analyze this image.' }
+        ]}
+      ], max_tokens: 1000, temperature: 0.3 })
+    });
+    const data = await resp.json();
+    let reply = data.choices?.[0]?.message?.content || '';
+    reply = reply.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    // Extract JSON from reply
+    const jsonMatch = reply.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) { toast('解析失败：AI 未返回有效 JSON', 'err'); btn.disabled = false; btn.textContent = '🔍 解析风格'; return; }
+    const dims = JSON.parse(jsonMatch[0]);
+
+    // Show save dialog
+    const name = prompt('给这个风格模板起个名字：', '自定义风格');
+    if (!name) { btn.disabled = false; btn.textContent = '🔍 解析风格'; return; }
+
+    const saveResp = await fetch('/gateway/styles/save', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ name, dimensions: dims })
+    });
+    const saveData = await saveResp.json();
+    if (saveData.ok) {
+      toast(`风格模板"${name}"已保存`, 'ok');
+      loadStyleTemplates();
+    } else { toast(saveData.detail || '保存失败', 'err'); }
+  } catch(e) {
+    toast('解析失败: ' + e.message, 'err');
+  }
+  btn.disabled = false; btn.textContent = '🔍 解析风格';
+}
+
+async function loadStyleTemplates() {
+  try {
+    const resp = await fetch('/gateway/styles', { headers: authHeaders() });
+    const data = await resp.json();
+    savedStyles = data.styles || [];
+    renderStyleTemplates();
+  } catch(e) { console.error('Load styles failed:', e); }
+}
+
+function renderStyleTemplates() {
+  const el = document.getElementById('styleTemplates');
+  const countEl = document.getElementById('styleTemplateCount');
+  const zone = document.getElementById('styleTemplateZone');
+  if (!savedStyles.length) {
+    el.innerHTML = '';
+    countEl.textContent = '';
+    if (zone) zone.style.display = 'none';
+    return;
+  }
+  if (zone) zone.style.display = '';
+  countEl.textContent = `${savedStyles.length} 个`;
+  el.innerHTML = savedStyles.map(s => {
+    const dims = s.dimensions || {};
+    const dimCount = Object.keys(dims).length;
+    return `<div class="style-tpl-card" style="flex:0 0 auto;min-width:140px;max-width:200px">
+      <div class="style-tpl-header" onclick="this.parentElement.querySelector('.style-tpl-dims').style.display=this.parentElement.querySelector('.style-tpl-dims').style.display==='none'?'flex':'none'">
+        <span style="font-size:0.8rem">🎭 ${esc(s.name)}</span>
+        <button onclick="event.stopPropagation();deleteStyleTemplate('${s.id}')" style="border:none;background:none;color:var(--text-light);cursor:pointer;font-size:0.65rem;padding:0">🗑</button>
+      </div>
+      <div style="font-size:0.65rem;color:var(--text-light);margin-top:0.15rem">${dimCount} 维度 · 点击展开</div>
+      <div class="style-tpl-dims" style="display:none;margin-top:0.3rem">
+        ${Object.entries(dims).map(([k,v]) => {
+          const key = s.id + ':' + k;
+          const isActive = activeDims[key] !== undefined;
+          return `<button class="dim-chip${isActive?' active':''}" onclick="event.stopPropagation();toggleDim('${s.id}','${k}',this)" title="${esc(v)}">
+            <span class="dim-label">${DIM_LABELS[k]||k}</span>
+          </button>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  renderActiveDims();
+}
+
+function toggleDim(tplId, dimKey, el) {
+  const key = tplId + ':' + dimKey;
+  const tpl = savedStyles.find(s => s.id === tplId);
+  if (!tpl) return;
+  if (activeDims[key] !== undefined) {
+    delete activeDims[key];
+    el.classList.remove('active');
+  } else {
+    activeDims[key] = tpl.dimensions[dimKey];
+    el.classList.add('active');
+  }
+  renderActiveDims();
+}
+
+function renderActiveDims() {
+  const el = document.getElementById('styleDimActive');
+  const entries = Object.entries(activeDims);
+  if (!entries.length) { el.innerHTML = ''; return; }
+  el.innerHTML = entries.map(([key, val]) => {
+    const [tplId, dimKey] = key.split(':');
+    const tpl = savedStyles.find(s => s.id === tplId);
+    return `<span class="dim-chip active" onclick="delete activeDims['${key}'];renderStyleTemplates()" title="${esc(val)}">
+      <span class="dim-label">${DIM_LABELS[dimKey]||dimKey}</span> ${tpl?esc(tpl.name):''}
+    </span>`;
+  }).join('');
+}
+
+function getActiveDimsPrompt() {
+  const entries = Object.entries(activeDims);
+  if (!entries.length) return '';
+  // Build prompt in 5-layer order: physical → style → content → quality → NOT negative
+  const byLayer = {};
+  for (const [key, val] of entries) {
+    const dimKey = key.split(':').pop();
+    if (!byLayer[dimKey]) byLayer[dimKey] = [];
+    byLayer[dimKey].push(val);
+  }
+  const parts = [];
+  if (byLayer.physical) parts.push(byLayer.physical.join(', '));
+  if (byLayer.style) parts.push(byLayer.style.join(', '));
+  if (byLayer.content) parts.push(byLayer.content.join(', '));
+  if (byLayer.quality) parts.push(byLayer.quality.join(', '));
+  if (byLayer.negative) parts.push('NOT ' + byLayer.negative.map(v => v.replace(/^排除[：:]\s*/i, '')).join(', '));
+  return parts.join(', ');
+}
+
+async function deleteStyleTemplate(id) {
+  if (!confirm('删除这个风格模板？')) return;
+  // Remove active dims from this template
+  for (const key of Object.keys(activeDims)) {
+    if (key.startsWith(id + ':')) delete activeDims[key];
+  }
+  try {
+    await fetch(`/gateway/styles/${id}`, { method: 'DELETE', headers: authHeaders() });
+    toast('已删除', 'ok');
+    loadStyleTemplates();
+  } catch(e) { toast('删除失败', 'err'); }
+}
+
+// ── Gallery ───────────────────────────────────────────────
+async function loadGallery(append) {
+  if (!append) { galleryOffset = 0; galleryImages = []; }
+  try {
+    const resp = await fetch(`/gateway/images?offset=${galleryOffset}&limit=${GALLERY_PAGE}`, { headers: authHeaders() });
+    const data = await resp.json();
+    if (!append) galleryImages = [];
+    galleryImages.push(...(data.images || []));
+    galleryOffset = galleryImages.length;
+    renderGallery();
+    const more = document.getElementById('galleryMore');
+    more.style.display = (data.total > galleryOffset) ? '' : 'none';
+    document.getElementById('galleryCount').textContent = data.total ? `${data.total} 张` : '';
+    document.getElementById('galleryEmpty').style.display = galleryImages.length ? 'none' : '';
+  } catch(e) { console.error('Gallery load failed:', e); }
+}
+
+function loadMoreGallery() { loadGallery(true); }
+
+function renderGallery() {
+  const grid = document.getElementById('galleryGrid');
+  grid.innerHTML = galleryImages.map(img => {
+    const src = `/data/images/${img.filename}`;
+    const date = new Date(img.created * 1000).toLocaleString();
+    const fp = esc(img.final_prompt || img.prompt || '');
+    return `<div class="img-card" style="position:relative" draggable="true" ondragstart="event.dataTransfer.setData('text/plain','gallery:${img.filename}')">
+      <img src="${src}" loading="lazy" onclick="window.open('${src}')" title="${fp}">
+      <div class="img-card-actions">
+        <button class="img-action-btn save " onclick="event.stopPropagation();loadGalleryImageToEdit('${img.filename}')" title="编辑">✏️</button>
+        <a class="img-action-btn dl " download="${img.filename}" href="${src}" onclick="event.stopPropagation()">⬇</a>
+        <button class="img-action-btn" onclick="event.stopPropagation();const p=this.closest('.img-card').querySelector('.gallery-prompt');if(p)p.style.display=p.style.display==='none'?'':'none'" title="查看提示词">📝</button>
+        <button class="img-action-btn del" onclick="event.stopPropagation();deleteGalleryImage('${img.id}')">🗑</button>
+      </div>
+      <div class="gallery-meta">${esc((img.prompt||'').slice(0,40))}${img.style&&img.style!=='none'?' · '+img.style:''}</div>
+      <div class="gallery-prompt" onclick="event.stopPropagation();navigator.clipboard.writeText(this.textContent);toast('\u5df2\u590d\u5236','ok');this.style.background='var(--accent-light)';setTimeout(()=>this.style.background='var(--bg)',600)" title="\u70b9\u51fb\u590d\u5236" style="display:none;font-size:0.68rem;color:var(--text-muted);padding:0.3rem;background:var(--bg);border-radius:4px;margin-top:0.2rem;word-break:break-all;line-height:1.3;cursor:pointer">${fp}</div>
+    </div>`;
+  }).join('');
+}
+
+
+async function deleteGalleryImage(id) {
+  if (!confirm('删除这张图片？')) return;
+  try {
+    await fetch(`/gateway/images/${id}`, { method: 'DELETE', headers: authHeaders() });
+    toast('已删除', 'ok');
+    loadGallery();
+  } catch(e) { toast('删除失败', 'err'); }
+}
+
+function toggleLogs() {
+  const body = document.getElementById('logBody');
+  const arrow = document.getElementById('logArrow');
+  body.classList.toggle('open');
+  arrow.classList.toggle('open');
+}
+
+// ── Deploy Modal ───────────────────────────────────────────
+function openModal(num) {
+  currentNum = num;
+  const gw = gatewayStatus && gatewayStatus.containers ? gatewayStatus.containers.find(c => c.num === num) : null;
+  const displayName = (gw && gw.name) || names[num] || '';
+  const group = (gw && gw.group) || '';
+  document.getElementById('modalTitle').textContent = '#' + num + ' — gemini_api_account_' + num;
+  document.getElementById('mName').value = displayName;
+  populateGroupSelect('mGroup');
+  document.getElementById('mGroup').value = group;
+  document.getElementById('mPsid').value = '';
+  document.getElementById('mPsidts').value = '';
+  document.getElementById('modalMsg').textContent = '';
+  document.getElementById('deployBtn').disabled = false;
+  document.getElementById('deployBtn').textContent = '部署';
+  // Reset container log
+  document.getElementById('cLogBody').classList.remove('open');
+  document.getElementById('cLogArrow').classList.remove('open');
+  document.getElementById('cLogList').innerHTML = '';
+  document.getElementById('modalOverlay').classList.add('active');
+  setTimeout(() => document.getElementById('mPsid').focus(), 200);
+}
+
+function closeModal() {
+  if (currentNum !== null) {
+    const nameVal = document.getElementById('mName').value.trim();
+    saveName(currentNum, nameVal);
+    saveGroup(currentNum, document.getElementById('mGroup').value.trim());
+    renderGrid();
+  }
+  document.getElementById('modalOverlay').classList.remove('active');
+  currentNum = null;
+}
+
+function showErrorHistory(num) {
+  const gw = gatewayStatus && gatewayStatus.containers
+    ? gatewayStatus.containers.find(c => c.num === num) : null;
+  const hist = (gw && gw.error_history) || [];
+  const total = (gw && gw.total_errors) || 0;
+  const overlay = document.getElementById('errHistOverlay');
+  const body = document.getElementById('errHistBody');
+  document.getElementById('errHistTitle').textContent =
+    `#${num} 错误明细 · 累计 ${total} · 保留最近 ${hist.length}/30 条`;
+  if (!hist.length) {
+    body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted)">暂无错误记录（gateway 启动后该 slot 没报过错；或重启后清空）</div>';
+  } else {
+    const rows = hist.slice().reverse().map(e => {
+      const code = e.code ? ` · code=${e.code}` : '';
+      const path = e.path ? ` · ${e.path}` : '';
+      return `<div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px">
+        <div style="color:var(--text-muted);font-size:11px;margin-bottom:4px">${esc(e.at)} · ${esc(e.kind || '?')}${esc(code)}${esc(path)}</div>
+        <div style="white-space:pre-wrap;word-break:break-word;line-height:1.5">${esc(e.msg || '')}</div>
+      </div>`;
+    }).join('');
+    body.innerHTML = rows;
+  }
+  overlay.classList.add('active');
+}
+
+function closeErrorHistory() {
+  document.getElementById('errHistOverlay').classList.remove('active');
+}
+
+function saveGroup(num, group) {
+  fetch(`/gateway/group/${num}`, {
+    method: 'POST', headers: authHeaders(),
+    body: JSON.stringify({group: group || ''})
+  }).then(() => loadAll()).catch(() => {});
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (document.getElementById('groupMgrOverlay').classList.contains('active')) closeGroupManager();
+    else if (document.getElementById('guardOverlay').classList.contains('active')) closeGuardSettings();
+    else closeModal();
+  }
+});
+
+function doDeploy() {
+  const psid = document.getElementById('mPsid').value.trim();
+  const psidts = document.getElementById('mPsidts').value.trim();
+  const msg = document.getElementById('modalMsg');
+  const btn = document.getElementById('deployBtn');
+
+  if (!psid) {
+    msg.className = 'modal-msg err';
+    msg.textContent = 'SECURE_1PSID 不能为空';
+    return;
+  }
+
+  const nameVal = document.getElementById('mName').value.trim();
+  saveName(currentNum, nameVal);
+  saveGroup(currentNum, document.getElementById('mGroup').value.trim());
+
+  btn.disabled = true;
+  btn.textContent = '部署中...';
+  msg.className = 'modal-msg';
+  msg.textContent = '';
+
+  fetch(`/gateway/deploy/${currentNum}`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ psid: psid, psidts: psidts })
+  })
+  .then(r => r.json().then(data => ({ ok: r.ok, data })))
+  .then(({ ok, data }) => {
+    if (ok) {
+      msg.className = 'modal-msg ok';
+      msg.textContent = '部署成功！';
+      toast('#' + currentNum + ' 已部署', 'ok');
+      setTimeout(() => { loadAll(); closeModal(); }, 1200);
+    } else {
+      throw new Error(data.detail || data.error || '部署失败');
+    }
+  })
+  .catch(e => {
+    msg.className = 'modal-msg err';
+    msg.textContent = e.message;
+    btn.disabled = false;
+    btn.textContent = '部署';
+    toast('#' + currentNum + ' 失败: ' + e.message, 'err');
+  });
+}
+
+// ── Toast ──────────────────────────────────────────────────
+function toast(text, type) {
+  const container = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = 'toast ' + (type || 'info');
+  el.textContent = text;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(20px)';
+    el.style.transition = 'all 0.3s';
+    setTimeout(() => el.remove(), 300);
+  }, 2500);
+}
+
+loadNames();
+
+// ── Network Settings (Gateway bind host) ─────────────────────
+function loadNetworkSettings() {
+  const msgEl = document.getElementById('netMsg');
+  const hintEl = document.getElementById('netRuntimeHint');
+  msgEl.textContent = '';
+  hintEl.textContent = '加载中...';
+  fetch(API + '/network-settings', {headers: authHeaders()})
+    .then(r => r.json())
+    .then(data => {
+      const saved = (data.settings && data.settings.GATEWAY_HOST) || '0.0.0.0';
+      const runtime = (data.runtime && data.runtime.GATEWAY_HOST) || '';
+      document.getElementById('netGatewayHost').value = saved;
+      if (data.needs_restart) {
+        hintEl.innerHTML = `<span style="color:#d97706">.env 已保存 <b>${saved}</b>，当前运行中是 <b>${runtime}</b> — 需重启 gateway 才生效</span>`;
+      } else {
+        hintEl.textContent = `当前运行中：${runtime}`;
+      }
+    })
+    .catch(() => { hintEl.textContent = '加载失败'; });
+}
+
+function saveNetworkSettings() {
+  const msgEl = document.getElementById('netMsg');
+  const btn = document.getElementById('netSaveBtn');
+  const host = document.getElementById('netGatewayHost').value.trim();
+  msgEl.className = 'modal-msg';
+  msgEl.textContent = '';
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+    msgEl.className = 'modal-msg err';
+    msgEl.textContent = '必须是合法 IPv4（如 0.0.0.0 / 127.0.0.1）';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+  fetch(API + '/network-settings', {
+    method: 'POST',
+    headers: Object.assign({'Content-Type': 'application/json'}, authHeaders()),
+    body: JSON.stringify({settings: {GATEWAY_HOST: host}})
+  })
+    .then(r => r.json().then(d => ({ok: r.ok, data: d})))
+    .then(({ok, data}) => {
+      if (!ok) {
+        msgEl.className = 'modal-msg err';
+        msgEl.textContent = data.detail || '保存失败';
+      } else {
+        msgEl.className = 'modal-msg ok';
+        let txt = data.message || '已保存';
+        if (data.needs_restart) txt += '  ·  需重启 gateway 才生效：sudo systemctl restart gemini-gateway';
+        msgEl.textContent = txt;
+        loadNetworkSettings();
+      }
+      btn.disabled = false;
+      btn.textContent = '保存';
+    })
+    .catch(() => {
+      msgEl.className = 'modal-msg err';
+      msgEl.textContent = '保存失败';
+      btn.disabled = false;
+      btn.textContent = '保存';
+    });
+}
+
+// ── Guard Settings ──────────────────────────────────────────
+let guardCodes = [];
+let guardKeywords = [];
+
+function renderTags(containerId, items, type) {
+  const area = document.getElementById(containerId);
+  area.querySelectorAll('.tag').forEach(t => t.remove());
+  const input = area.querySelector('input');
+  items.forEach((val, i) => {
+    const tag = document.createElement('span');
+    tag.className = 'tag ' + type;
+    const remove = document.createElement('span');
+    remove.className = 'tag-remove';
+    remove.textContent = '\u00d7';
+    remove.dataset.container = containerId;
+    remove.dataset.index = i;
+    remove.onclick = function() { removeTag(this.dataset.container, +this.dataset.index); };
+    tag.textContent = val + ' ';
+    tag.appendChild(remove);
+    area.insertBefore(tag, input);
+  });
+}
+
+function removeTag(containerId, index) {
+  if (containerId === 'codesArea') {
+    guardCodes.splice(index, 1);
+    renderTags('codesArea', guardCodes, 'code');
+  } else {
+    guardKeywords.splice(index, 1);
+    renderTags('keywordsArea', guardKeywords, 'keyword');
+  }
+}
+
+document.getElementById('codesInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const val = this.value.trim();
+    if (val && /^\d{3}$/.test(val) && !guardCodes.includes(val)) {
+      guardCodes.push(val);
+      renderTags('codesArea', guardCodes, 'code');
+    }
+    this.value = '';
+  } else if (e.key === 'Backspace' && !this.value && guardCodes.length) {
+    guardCodes.pop();
+    renderTags('codesArea', guardCodes, 'code');
+  }
+});
+
+document.getElementById('keywordsInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const val = this.value.trim();
+    if (val && !guardKeywords.includes(val)) {
+      guardKeywords.push(val);
+      renderTags('keywordsArea', guardKeywords, 'keyword');
+    }
+    this.value = '';
+  } else if (e.key === 'Backspace' && !this.value && guardKeywords.length) {
+    guardKeywords.pop();
+    renderTags('keywordsArea', guardKeywords, 'keyword');
+  }
+});
+
+function openGuardSettings() {
+  document.getElementById('guardMsg').textContent = '';
+  document.getElementById('guardSaveBtn').disabled = true;
+  document.getElementById('guardSaveBtn').textContent = '加载中...';
+  document.getElementById('guardOverlay').classList.add('active');
+
+  fetch(API + '/guard-settings', {headers: authHeaders()})
+    .then(r => r.json())
+    .then(data => {
+      const s = data.settings || {};
+      document.getElementById('guardAutoDisable').checked = (s.GUARD_AUTO_DISABLE || 'true').toLowerCase() === 'true';
+      document.getElementById('guardThreshold').value = s.GUARD_ERROR_THRESHOLD || '3';
+
+      guardCodes = (s.GUARD_DISABLE_CODES || '').split(',').map(c => c.trim()).filter(c => c && /^\d+$/.test(c));
+      guardKeywords = (s.GUARD_DISABLE_KEYWORDS || '').split(',').map(k => k.trim()).filter(Boolean);
+
+      renderTags('codesArea', guardCodes, 'code');
+      renderTags('keywordsArea', guardKeywords, 'keyword');
+
+      document.getElementById('guardSaveBtn').disabled = false;
+      document.getElementById('guardSaveBtn').textContent = '保存';
+
+      // load model chips + slot defaults + recent truth records
+      fetch('/v1/models', {headers: authHeaders()}).then(r=>r.json()).then(d => {
+        const ids = (d.data||[]).map(m=>m.id).filter(id=>id!=='unspecified');
+        renderModelChips(ids);
+      }).catch(()=>{});
+      loadModelInspector();
+      loadNetworkSettings();
+    })
+    .catch(e => {
+      document.getElementById('guardMsg').className = 'modal-msg err';
+      document.getElementById('guardMsg').textContent = '加载设置失败';
+      document.getElementById('guardSaveBtn').disabled = false;
+      document.getElementById('guardSaveBtn').textContent = '保存';
+    });
+}
+
+function closeGuardSettings() {
+  document.getElementById('guardOverlay').classList.remove('active');
+}
+
+function saveGuardSettings() {
+  const btn = document.getElementById('guardSaveBtn');
+  const msg = document.getElementById('guardMsg');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+  msg.textContent = '';
+
+  const settings = {
+    GUARD_AUTO_DISABLE: document.getElementById('guardAutoDisable').checked ? 'true' : 'false',
+    GUARD_ERROR_THRESHOLD: document.getElementById('guardThreshold').value || '3',
+    GUARD_DISABLE_CODES: guardCodes.join(','),
+    GUARD_DISABLE_KEYWORDS: guardKeywords.join(','),
+  };
+
+  fetch(API + '/guard-settings', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ password: password, settings: settings })
+  })
+  .then(r => r.json().then(data => ({ ok: r.ok, data })))
+  .then(({ ok, data }) => {
+    if (ok) {
+      msg.className = 'modal-msg ok';
+      msg.textContent = '已保存！下次 guard 周期生效（约 1 分钟）';
+      toast('Guard 设置已保存', 'ok');
+      setTimeout(() => closeGuardSettings(), 1500);
+    } else {
+      throw new Error(data.detail || data.error || '保存失败');
+    }
+  })
+  .catch(e => {
+    msg.className = 'modal-msg err';
+    msg.textContent = e.message;
+  })
+  .finally(() => {
+    btn.disabled = false;
+    btn.textContent = '保存';
+  });
+}
+
+// ── Group Manager (分组管理弹窗) ────────────────────────────
+let gmPickerGroup = '';  // which group is being edited in picker
+let gmPickerSet = new Set();  // container nums selected in picker
+
+function populateGroupSelect(selectId) {
+  const sel = document.getElementById(selectId);
+  const current = sel.value;
+  const defs = (gatewayStatus && gatewayStatus.group_defs) || [];
+  sel.innerHTML = '<option value="">默认分组</option>' +
+    defs.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('');
+  sel.value = current;
+}
+
+function openGroupManager() {
+  document.getElementById('newGroupName').value = '';
+  document.getElementById('groupMgrMsg').textContent = '';
+  gmShowMain();
+  renderGroupDefs();
+  document.getElementById('groupMgrOverlay').classList.add('active');
+}
+
+function closeGroupManager() {
+  document.getElementById('groupMgrOverlay').classList.remove('active');
+}
+
+function gmShowMain() {
+  document.getElementById('gmMainView').style.display = '';
+  document.getElementById('gmPickerView').style.display = 'none';
+  document.getElementById('gmTitle').innerHTML = '&#x1F3F7; 分组管理';
+}
+
+function gmGetCounts() {
+  const counts = {};
+  const defs = (gatewayStatus && gatewayStatus.group_defs) || [];
+  defs.forEach(g => { counts[g] = 0; });
+  let defaultCount = 0;
+  if (gatewayStatus && gatewayStatus.containers) {
+    gatewayStatus.containers.forEach(c => {
+      if (c.group && counts[c.group] !== undefined) counts[c.group]++;
+      else defaultCount++;
+    });
+  }
+  counts['__default__'] = defaultCount;
+  return counts;
+}
+
+function renderGroupDefs() {
+  const defs = (gatewayStatus && gatewayStatus.group_defs) || [];
+  const counts = gmGetCounts();
+  const list = document.getElementById('groupDefsList');
+
+  // Default group (always shown)
+  let html = `
+    <div class="group-def-item">
+      <div class="group-def-name">
+        <span class="group-badge" style="background:var(--border);color:var(--text-muted)">默认</span>
+        <span class="group-def-count">${counts['__default__'] || 0} 个容器</span>
+      </div>
+    </div>`;
+
+  if (defs.length === 0) {
+    html += '<div style="color:var(--text-muted);font-size:0.85rem;padding:0.5rem">暂无自定义分组</div>';
+  } else {
+    html += defs.map(g => `
+      <div class="group-def-item">
+        <div class="group-def-name">
+          <span class="group-badge" style="background:${groupColor(g)};color:#fff">${esc(g)}</span>
+          <span class="group-def-count">${counts[g] || 0} 个容器</span>
+        </div>
+        <div class="group-def-actions">
+          <button class="group-def-btn" onclick="gmOpenPicker('${esc(g)}')">选容器</button>
+          <button class="group-def-btn" onclick="renameGroup('${esc(g)}')">改名</button>
+          <button class="group-def-del" onclick="deleteGroup('${esc(g)}')">删除</button>
+        </div>
+      </div>
+    `).join('');
+  }
+  list.innerHTML = html;
+}
+
+function createGroup() {
+  const name = document.getElementById('newGroupName').value.trim().toLowerCase();
+  const msg = document.getElementById('groupMgrMsg');
+  if (!name) { msg.className = 'modal-msg err'; msg.textContent = '名称不能为空'; return; }
+  fetch('/gateway/create-group', {
+    method: 'POST', headers: authHeaders(),
+    body: JSON.stringify({name})
+  })
+  .then(r => r.json().then(data => ({ok: r.ok, data})))
+  .then(({ok, data}) => {
+    if (ok) {
+      toast(`分组 [${name}] 已创建`, 'ok');
+      document.getElementById('newGroupName').value = '';
+      msg.textContent = '';
+      loadAll().then(() => renderGroupDefs());
+    } else { throw new Error(data.detail || '创建失败'); }
+  })
+  .catch(e => { msg.className = 'modal-msg err'; msg.textContent = e.message; });
+}
+
+function deleteGroup(name) {
+  if (!confirm(`删除分组 [${name}]？其中的容器将回到默认分组`)) return;
+  fetch('/gateway/delete-group', {
+    method: 'POST', headers: authHeaders(),
+    body: JSON.stringify({name})
+  })
+  .then(r => r.json().then(data => ({ok: r.ok, data})))
+  .then(({ok, data}) => {
+    if (ok) { toast(`分组 [${name}] 已删除`, 'ok'); loadAll().then(() => renderGroupDefs()); }
+    else { throw new Error(data.detail || '删除失败'); }
+  })
+  .catch(e => toast(e.message, 'err'));
+}
+
+function renameGroup(name) {
+  const newName = prompt(`修改分组名 [${name}]，输入新名称：`, name);
+  if (!newName || newName.trim().toLowerCase() === name) return;
+  fetch('/gateway/rename-group', {
+    method: 'POST', headers: authHeaders(),
+    body: JSON.stringify({old: name, new: newName.trim().toLowerCase()})
+  })
+  .then(r => r.json().then(data => ({ok: r.ok, data})))
+  .then(({ok, data}) => {
+    if (ok) { toast(`分组已改名 → [${newName.trim().toLowerCase()}]`, 'ok'); loadAll().then(() => renderGroupDefs()); }
+    else { throw new Error(data.detail || '改名失败'); }
+  })
+  .catch(e => toast(e.message, 'err'));
+}
+
+// ── Container Picker (为分组选择容器) ────────────────────────
+function gmOpenPicker(group) {
+  gmPickerGroup = group;
+  gmPickerSet = new Set();
+  // Pre-select containers already in this group
+  if (gatewayStatus && gatewayStatus.containers) {
+    gatewayStatus.containers.forEach(c => {
+      if (c.group === group) gmPickerSet.add(c.num);
+    });
+  }
+  document.getElementById('gmMainView').style.display = 'none';
+  document.getElementById('gmPickerView').style.display = '';
+  document.getElementById('gmTitle').innerHTML =
+    `&#x1F4E6; 为 <span class="group-badge" style="background:${groupColor(group)};color:#fff">${esc(group)}</span> 选择容器`;
+  gmRenderPicker();
+}
+
+function gmRenderPicker() {
+  const grid = document.getElementById('gmPickerGrid');
+  const gwMap = {};
+  if (gatewayStatus && gatewayStatus.containers) {
+    gatewayStatus.containers.forEach(c => { gwMap[c.num] = c; });
+  }
+  grid.innerHTML = accounts.map(a => {
+    const num = a.num;
+    const gw = gwMap[num];
+    const curGroup = (gw && gw.group) || '';
+    const name = (gw && gw.name) || '';
+    const port = (gw && gw.port) || '';
+    const healthy = gw && gw.healthy;
+    const enabled = gw ? gw.enabled : true;
+    const picked = gmPickerSet.has(num);
+    const otherGroup = curGroup && curGroup !== gmPickerGroup;
+    const cls = picked ? 'picked' : (otherGroup ? 'other-group' : '');
+    const dotColor = !enabled ? 'var(--text-light)' : healthy ? 'var(--success)' : 'var(--danger)';
+    const groupTag = otherGroup ? `<span class="group-badge" style="background:${groupColor(curGroup)};color:#fff;font-size:0.6rem;padding:0.05rem 0.35rem">${esc(curGroup)}</span>` : '';
+    return `<div class="gm-pick-item ${cls}" onclick="gmTogglePick(${num})">
+      <span class="gm-pick-check">${picked ? '&#x2713;' : ''}</span>
+      <span class="gm-pick-dot" style="background:${dotColor}"></span>
+      <span class="gm-pick-num">#${num}</span>
+      <span class="gm-pick-name">${esc(name || 'Container ' + num)}</span>
+      ${groupTag}
+      <span class="gm-pick-port">:${port}</span>
+    </div>`;
+  }).join('');
+}
+
+function gmTogglePick(num) {
+  if (gmPickerSet.has(num)) gmPickerSet.delete(num);
+  else gmPickerSet.add(num);
+  gmRenderPicker();
+}
+
+function gmSavePicker() {
+  // Find what changed: containers to add to this group + containers to remove
+  const toAdd = Array.from(gmPickerSet);
+  const toRemove = [];
+  if (gatewayStatus && gatewayStatus.containers) {
+    gatewayStatus.containers.forEach(c => {
+      if (c.group === gmPickerGroup && !gmPickerSet.has(c.num)) {
+        toRemove.push(c.num);
+      }
+    });
+  }
+
+  // Batch set: selected → this group, deselected → default
+  const promises = [];
+  if (toAdd.length > 0) {
+    promises.push(fetch('/gateway/batch-group', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({group: gmPickerGroup, containers: toAdd})
+    }));
+  }
+  if (toRemove.length > 0) {
+    promises.push(fetch('/gateway/batch-group', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({group: '', containers: toRemove})
+    }));
+  }
+
+  Promise.all(promises)
+    .then(() => {
+      toast(`[${gmPickerGroup}] 已更新`, 'ok');
+      loadAll().then(() => { renderGroupDefs(); gmShowMain(); });
+    })
+    .catch(e => toast(e.message, 'err'));
+}
+
+document.getElementById('newGroupName').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); createGroup(); }
+});
+
+// ========== Video Generation ==========
+function doVidGen() {
+  const prompt = document.getElementById('imgPrompt').value.trim();
+  if (!prompt) return;
+  const model = document.getElementById('imgModel').value;
+  let finalPrompt = prompt;
+  if (vidSelectedStyle && vidSelectedStyle !== 'none') finalPrompt = `${vidSelectedStyle} style. ${prompt}`;
+  const params = {prompt: finalPrompt, model};
+  if (uploadedImageB64) { params.image = uploadedImageB64; params.media_type = uploadedMediaType; }
+  TaskManager.create('video', params);
+  toast('🎬 视频生成已提交', 'ok');
+}
+
+function doMusicGen() {
+  const prompt = document.getElementById('imgPrompt').value.trim();
+  if (!prompt) return;
+  const model = document.getElementById('imgModel').value;
+  let finalPrompt = prompt;
+  if (musicSelectedStyle && musicSelectedStyle !== 'none') finalPrompt = `${musicSelectedStyle} style. ${prompt}`;
+  const params = {prompt: finalPrompt, model};
+  if (uploadedImageB64) { params.image = uploadedImageB64; params.media_type = uploadedMediaType; }
+  TaskManager.create('music', params);
+  toast('🎵 音乐生成已提交', 'ok');
+}
+
+// ── Section Toggle ────────────────────────────────────────
+function toggleSection(key, contentId) {
+  const content = document.getElementById(contentId);
+  const collapsed = localStorage.getItem(key) === '1';
+  if (collapsed) {
+    localStorage.removeItem(key);
+    content.classList.remove('collapsed');
+    document.querySelector(`[onclick*="${key}"]`).classList.remove('collapsed');
+  } else {
+    localStorage.setItem(key, '1');
+    content.classList.add('collapsed');
+    document.querySelector(`[onclick*="${key}"]`).classList.add('collapsed');
+  }
+}
+function restoreSectionState(key, contentId) {
+  if (localStorage.getItem(key) === '1') {
+    const content = document.getElementById(contentId);
+    if (content) content.classList.add('collapsed');
+    const toggle = document.querySelector(`[onclick*="${key}"]`);
+    if (toggle) toggle.classList.add('collapsed');
+  }
+}
+restoreSectionState('gallery_collapsed', 'galleryContent');
+restoreSectionState('vidgallery_collapsed', 'vidGalleryContent');
+restoreSectionState('audiogallery_collapsed', 'audioGalleryContent');
+
+// ── Video Gallery ─────────────────────────────────────────
+async function saveVideoToGallery(idx) {
+  const v = window._vidResults?.[idx];
+  if (!v) return;
+  const prompt = document.getElementById('imgPrompt').value.trim();
+  const model = document.getElementById('imgModel').value;
+  const body = { prompt, model };
+  if (v.b64_json) body.b64 = v.b64_json;
+  if (v.url) body.url = v.url;
+  try {
+    const resp = await fetch('/gateway/videos/save', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await resp.json();
+    if (data.ok) { toast('已保存到视频库', 'ok'); loadVideoGallery(); }
+    else { toast(data.detail || '保存失败', 'err'); }
+  } catch(e) { toast('保存失败: ' + e.message, 'err'); }
+}
+
+async function loadVideoGallery(append) {
+  if (!append) { vidGalleryOffset = 0; vidGalleryItems = []; }
+  try {
+    const resp = await fetch(`/gateway/videos?offset=${vidGalleryOffset}&limit=${VID_GALLERY_PAGE}`, { headers: authHeaders() });
+    const data = await resp.json();
+    if (!append) vidGalleryItems = [];
+    vidGalleryItems.push(...(data.videos || []));
+    vidGalleryOffset = vidGalleryItems.length;
+    renderVideoGallery();
+    const more = document.getElementById('vidGalleryMore');
+    more.style.display = (data.total > vidGalleryOffset) ? '' : 'none';
+    document.getElementById('vidGalleryCount').textContent = data.total ? `${data.total} 个` : '';
+    document.getElementById('vidGalleryEmpty').style.display = vidGalleryItems.length ? 'none' : '';
+  } catch(e) { console.error('Video gallery load failed:', e); }
+}
+
+function loadMoreVideoGallery() { loadVideoGallery(true); }
+
+function renderVideoGallery() {
+  const grid = document.getElementById('vidGalleryGrid');
+  grid.innerHTML = vidGalleryItems.map(v => {
+    const src = `/data/videos/${v.filename}`;
+    const fp = esc(v.prompt || '');
+    return `<div class="img-card">
+      <video controls style="width:100%;border-radius:6px" src="${src}" preload="metadata"></video>
+      <div class="img-card-actions">
+        <button class="img-action-btn save" onclick="event.stopPropagation();loadVideoToEdit('${v.filename}')" title="编辑">✏️</button>
+        <a class="img-action-btn dl" download="${v.filename}" href="${src}" onclick="event.stopPropagation()">⬇</a>
+        <button class="img-action-btn" onclick="event.stopPropagation();const p=this.closest('.img-card').querySelector('.gallery-prompt');if(p)p.style.display=p.style.display==='none'?'':'none'" title="查看提示词">📝</button>
+        <button class="img-action-btn del" onclick="event.stopPropagation();deleteVideo('${v.id}')">🗑</button>
+      </div>
+      <div class="gallery-meta">${esc((v.prompt||'').slice(0,40))}${v.model?' · '+v.model:''}</div>
+      <div class="gallery-prompt" onclick="event.stopPropagation();navigator.clipboard.writeText(this.textContent);toast('已复制','ok');this.style.background='var(--accent-light)';setTimeout(()=>this.style.background='var(--bg)',600)" title="点击复制" style="display:none;font-size:0.68rem;color:var(--text-muted);padding:0.3rem;background:var(--bg);border-radius:4px;margin-top:0.2rem;word-break:break-all;line-height:1.3;cursor:pointer">${fp}</div>
+    </div>`;
+  }).join('');
+}
+
+async function loadVideoToEdit(filename) {
+  try {
+    const resp = await fetch(`/data/videos/${filename}`);
+    const blob = await resp.blob();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const b64 = e.target.result.split(',')[1];
+      uploadedImageB64 = b64;
+      uploadedMediaType = 'video';
+      editSessionId = null;
+      const preview = document.getElementById('imgUploadPreview');
+      const img = document.getElementById('imgPreviewImg'); img.style.display = 'none';
+      const oldVid = document.getElementById('vidPreviewPlayer'); if (oldVid) oldVid.remove();
+      const oldAud = document.getElementById('audPreviewPlayer'); if (oldAud) oldAud.remove();
+      const vid = document.createElement('video'); vid.id = 'vidPreviewPlayer'; vid.controls = true;
+      vid.style.cssText = 'width:100%;max-height:500px;border-radius:6px;display:block';
+      vid.src = e.target.result;
+      img.parentNode.insertBefore(vid, img);
+      preview.style.display = ''; document.getElementById('imgUploadEmpty').style.display = 'none';
+      document.getElementById('imgFileInfo').innerHTML = `从视频库加载 · 🎬 ${filename}`;
+      updateButtonsForMediaType();
+      document.getElementById('imgUploadArea').scrollIntoView({behavior:'smooth',block:'center'});
+      toast('视频已加载到素材区', 'ok');
+    };
+    reader.readAsDataURL(blob);
+  } catch(e) { toast('加载失败: ' + e.message, 'err'); }
+}
+
+async function deleteVideo(vid_id) {
+  if (!confirm('删除这个视频？')) return;
+  try {
+    await fetch(`/gateway/videos/${vid_id}`, { method: 'DELETE', headers: authHeaders() });
+    toast('已删除', 'ok');
+    loadVideoGallery();
+  } catch(e) { toast('删除失败', 'err'); }
+}
+
+// ── Audio Gallery ─────────────────────────────────────────
+async function loadAudioGallery(append) {
+  if (!append) { audioGalleryOffset = 0; audioGalleryItems = []; }
+  try {
+    const resp = await fetch(`/gateway/audio?offset=${audioGalleryOffset}&limit=${AUDIO_GALLERY_PAGE}`, { headers: authHeaders() });
+    const data = await resp.json();
+    if (!append) audioGalleryItems = [];
+    audioGalleryItems.push(...(data.audio || []));
+    audioGalleryOffset = audioGalleryItems.length;
+    renderAudioGallery();
+    const more = document.getElementById('audioGalleryMore');
+    more.style.display = (data.total > audioGalleryOffset) ? '' : 'none';
+    document.getElementById('audioGalleryCount').textContent = data.total ? `${data.total} 个` : '';
+    document.getElementById('audioGalleryEmpty').style.display = audioGalleryItems.length ? 'none' : '';
+  } catch(e) { console.error('Audio gallery load failed:', e); }
+}
+function loadMoreAudioGallery() { loadAudioGallery(true); }
+function renderAudioGallery() {
+  const grid = document.getElementById('audioGalleryGrid');
+  grid.innerHTML = audioGalleryItems.map(a => {
+    const src = `/data/audio/${a.filename}`;
+    const altFile = a.filename_alt || '';
+    const srcAlt = altFile ? `/data/audio/${altFile}` : '';
+    const fp = esc(a.prompt || '');
+    const hasVideo = a.filename.endsWith('.mp4') || altFile.endsWith('.mp4');
+    const videoSrc = a.filename.endsWith('.mp4') ? src : srcAlt;
+    const mp3Src = a.filename.endsWith('.mp3') ? src : (altFile.endsWith('.mp3') ? srcAlt : '');
+    const mp3File = a.filename.endsWith('.mp3') ? a.filename : (altFile.endsWith('.mp3') ? altFile : '');
+    const mp4File = a.filename.endsWith('.mp4') ? a.filename : (altFile.endsWith('.mp4') ? altFile : '');
+    const mp4Src = mp4File ? `/data/audio/${mp4File}` : '';
+    const media = hasVideo
+      ? `<video controls style="width:100%;border-radius:6px" src="${videoSrc}" preload="metadata"></video>`
+      : `<div style="padding:0.5rem"><audio controls style="width:100%" src="${src}" preload="metadata"></audio></div>`;
+    // Download buttons: show separate MP3/MP4 if both exist
+    let dlBtns = '';
+    if (mp3File && mp4File) {
+      dlBtns = `<a class="img-action-btn dl" download="${mp3File}" href="${mp3Src}" onclick="event.stopPropagation()" style="font-size:0.68rem">⬇MP3</a>`;
+      dlBtns += `<a class="img-action-btn dl" download="${mp4File}" href="${mp4Src}" onclick="event.stopPropagation()" style="font-size:0.68rem">⬇MP4</a>`;
+    } else {
+      dlBtns = `<a class="img-action-btn dl" download="${a.filename}" href="${src}" onclick="event.stopPropagation()">⬇</a>`;
+    }
+    return `<div class="img-card">
+      ${media}
+      <div class="img-card-actions">
+        ${dlBtns}
+        <button class="img-action-btn save" onclick="event.stopPropagation();loadAudioToEdit('${a.id}')" title="编辑">✏️</button>
+        <button class="img-action-btn" onclick="event.stopPropagation();const p=this.closest('.img-card').querySelector('.gallery-prompt');if(p)p.style.display=p.style.display==='none'?'':'none'" title="查看提示词">📝</button>
+        <button class="img-action-btn del" onclick="event.stopPropagation();deleteAudio('${a.id}')">🗑</button>
+      </div>
+      <div class="gallery-prompt" onclick="event.stopPropagation();navigator.clipboard.writeText(this.textContent);toast('已复制','ok');this.style.background='var(--accent-light)';setTimeout(()=>this.style.background='var(--bg)',600)" title="点击复制" style="display:none;font-size:0.68rem;color:var(--text-muted);padding:0.3rem;background:var(--bg);border-radius:4px;margin-top:0.2rem;word-break:break-all;line-height:1.3;cursor:pointer">${fp}</div>
+    </div>`;
+  }).join('');
+}
+async function loadAudioToEdit(audioId) {
+  const item = audioGalleryItems.find(a => a.id === audioId);
+  if (!item) { toast('未找到音频', 'err'); return; }
+  // Prefer MP4 (has visuals), fallback to primary
+  const fn = item.filename_alt?.endsWith('.mp4') ? item.filename_alt : item.filename;
+  const isMp4 = fn.endsWith('.mp4');
+  try {
+    const resp = await fetch(`/data/audio/${fn}`);
+    const blob = await resp.blob();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const b64 = e.target.result.split(',')[1];
+      useMusicAsMaterial_b64(b64, isMp4);
+    };
+    reader.readAsDataURL(blob);
+  } catch(e) { toast('加载失败: ' + e.message, 'err'); }
+}
+async function deleteAudio(audio_id) {
+  if (!confirm('删除这个音频？')) return;
+  try {
+    await fetch(`/gateway/audio/${audio_id}`, { method: 'DELETE', headers: authHeaders() });
+    toast('已删除', 'ok');
+    loadAudioGallery();
+  } catch(e) { toast('删除失败', 'err'); }
+}
+
+
+</script>
+</body>
+</html>
