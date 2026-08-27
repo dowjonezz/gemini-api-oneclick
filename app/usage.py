@@ -1,9 +1,9 @@
 """Gemini account usage/limit diagnostics for the OneClick worker.
 
 This module intentionally keeps the usage-limit backport isolated from the
-vendored ``gemini_webapi`` fork.  Google exposes the same compute-usage data
+vendored ``gemini_webapi`` fork. Google exposes the same compute-usage data
 shown in Gemini's "Usage & limits" panel through the GetUsageInfo RPC
-(``jSf9Qc``).  We call that RPC with the already-authenticated GeminiClient and
+(``jSf9Qc``). We call that RPC with the already-authenticated GeminiClient and
 cache the result briefly so opening the dashboard does not create unnecessary
 traffic.
 """
@@ -16,7 +16,6 @@ from datetime import datetime, timezone
 from typing import Any
 
 from gemini_webapi.constants import Endpoint
-from gemini_webapi.types import RPCData
 from gemini_webapi.utils import extract_json_from_response, get_nested_value
 
 USAGE_RPC_ID = "jSf9Qc"
@@ -119,7 +118,7 @@ async def _request_usage_body(client: Any) -> Any:
     """Execute GetUsageInfo using the authenticated session owned by ``client``.
 
     The current OneClick vendored client predates upstream's ``source_path``
-    argument for ``_batch_execute``.  GetUsageInfo is requested from Gemini's
+    argument for ``_batch_execute``. GetUsageInfo is requested from Gemini's
     ``/usage`` surface, so the small request is reproduced here instead of
     modifying the heavily customized vendored client.
     """
@@ -131,7 +130,10 @@ async def _request_usage_body(client: Any) -> Any:
     reqid = int(getattr(client, "_reqid", 0) or 0)
     client._reqid = reqid + 100000
 
-    rpc = RPCData(rpcid=USAGE_RPC_ID, payload="[]")
+    # RPCData in this vendored client validates rpcid against its older GRPC
+    # enum, so serialize the new upstream RPC directly and keep the backport
+    # isolated from the heavily customized vendored library.
+    rpc_payload = [USAGE_RPC_ID, "[]", None, "generic"]
     params: dict[str, Any] = {
         "rpcids": USAGE_RPC_ID,
         "_reqid": reqid,
@@ -150,7 +152,7 @@ async def _request_usage_body(client: Any) -> Any:
         params=params,
         data={
             "at": getattr(client, "access_token", None),
-            "f.req": json.dumps([[rpc.serialize()]], separators=(",", ":")),
+            "f.req": json.dumps([[rpc_payload]], separators=(",", ":")),
         },
     )
     if response.status_code != 200:
