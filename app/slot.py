@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from fastapi import HTTPException
 from gemini_webapi import GeminiClient
 from gemini_webapi.constants import AccountStatus
 
@@ -19,6 +20,38 @@ logger = logging.getLogger(__name__)
 _SESSION_TTL = 600   # 10 minutes
 _MAX_SESSIONS = 50   # per slot
 _TLS_RESTART_THRESHOLD = 3
+_DEFAULT_TEXT_CHAT_TIMEOUT_SECONDS = 90.0
+
+
+def _text_chat_timeout_seconds() -> float:
+    raw = os.environ.get("TEXT_CHAT_TIMEOUT_SECONDS", str(_DEFAULT_TEXT_CHAT_TIMEOUT_SECONDS))
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        logger.warning(
+            "Invalid TEXT_CHAT_TIMEOUT_SECONDS=%r; using %.0fs",
+            raw,
+            _DEFAULT_TEXT_CHAT_TIMEOUT_SECONDS,
+        )
+        return _DEFAULT_TEXT_CHAT_TIMEOUT_SECONDS
+    if value <= 0:
+        logger.warning(
+            "TEXT_CHAT_TIMEOUT_SECONDS must be > 0; using %.0fs",
+            _DEFAULT_TEXT_CHAT_TIMEOUT_SECONDS,
+        )
+        return _DEFAULT_TEXT_CHAT_TIMEOUT_SECONDS
+    return value
+
+
+def _session_not_found(session_id: str, detail: str) -> HTTPException:
+    return HTTPException(
+        status_code=409,
+        detail=detail,
+        headers={
+            "X-OneClick-Chat-Session-Status": "session_not_found",
+            "X-OneClick-Chat-Session-ID": session_id,
+        },
+    )
 
 
 @dataclass
@@ -29,6 +62,56 @@ class StoredChatSession:
     created_at: float
     last_used_at: float
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    invalidated: bool = False
+
+
+class _TimedChatSession:
+    """Proxy a Gemini ChatSession with a hard watchdog for text turns.
+
+    A timed-out Gemini request cannot be safely continued: Google may have
+    accepted part of the request even though no complete response reached us.
+    Invalidate the local session and return the same 409 contract used for an
+    expired/missing session so the router can recover with a full bootstrap.
+    """
+
+    def __init__(
+        self,
+        chat: Any,
+        store: "ChatSessionStore",
+        session_id: str,
+        record: StoredChatSession,
+        timeout: float,
+    ) -> None:
+        self._chat = chat
+        self._store = store
+        self._session_id = session_id
+        self._record = record
+        self._timeout = timeout
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._chat, name)
+
+    async def send_message_stream(self, *args, **kwargs):
+        if self._record.invalidated:
+            raise _session_not_found(
+                self._session_id,
+                "Chat session is no longer valid; send a bootstrap request with full context",
+            )
+        try:
+            async with asyncio.timeout(self._timeout):
+                async for output in self._chat.send_message_stream(*args, **kwargs):
+                    yield output
+        except TimeoutError as exc:
+            self._store.invalidate(self._session_id, self._record)
+            logger.warning(
+                "Gemini text chat timed out session_id=%s timeout=%.1fs; session invalidated",
+                self._session_id,
+                self._timeout,
+            )
+            raise _session_not_found(
+                self._session_id,
+                f"Gemini text chat timed out after {self._timeout:g}s; send a bootstrap request with full context",
+            ) from exc
 
 
 class ChatSessionStore:
@@ -38,9 +121,17 @@ class ChatSessionStore:
     ChatSession here also pins it to the Google account that created it.
     """
 
-    def __init__(self, ttl: float = _SESSION_TTL, max_sessions: int = _MAX_SESSIONS):
+    def __init__(
+        self,
+        ttl: float = _SESSION_TTL,
+        max_sessions: int = _MAX_SESSIONS,
+        request_timeout: float | None = None,
+    ):
         self.ttl = ttl
         self.max_sessions = max_sessions
+        self.request_timeout = _text_chat_timeout_seconds() if request_timeout is None else request_timeout
+        if self.request_timeout <= 0:
+            raise ValueError("request_timeout must be > 0")
         self.sessions: dict[str, StoredChatSession] = {}
 
     def clear(self) -> None:
@@ -51,7 +142,7 @@ class ChatSessionStore:
         expired = [
             session_id
             for session_id, record in self.sessions.items()
-            if now - record.last_used_at > self.ttl and not record.lock.locked()
+            if record.invalidated or (now - record.last_used_at > self.ttl and not record.lock.locked())
         ]
         for session_id in expired:
             del self.sessions[session_id]
@@ -66,7 +157,9 @@ class ChatSessionStore:
         """Create a fresh session for an explicit bootstrap request."""
         now = time.time() if now is None else now
         self.cleanup(now)
-        record = StoredChatSession(chat=factory(), created_at=now, last_used_at=now)
+        raw_chat = factory()
+        record = StoredChatSession(chat=raw_chat, created_at=now, last_used_at=now)
+        record.chat = _TimedChatSession(raw_chat, self, session_id, record, self.request_timeout)
         self.sessions[session_id] = record
         self._evict_to_limit()
         return record
@@ -77,6 +170,9 @@ class ChatSessionStore:
         record = self.sessions.get(session_id)
         if record is None:
             return None
+        if record.invalidated:
+            del self.sessions[session_id]
+            return None
         # Do not invalidate a stream in progress. The caller will wait on its
         # per-session lock and then continue the same Gemini conversation.
         if record.lock.locked() or now - record.last_used_at <= self.ttl:
@@ -86,7 +182,14 @@ class ChatSessionStore:
         return None
 
     def touch(self, record: StoredChatSession, now: float | None = None) -> None:
-        record.last_used_at = time.time() if now is None else now
+        if not record.invalidated:
+            record.last_used_at = time.time() if now is None else now
+
+    def invalidate(self, session_id: str, record: StoredChatSession) -> None:
+        """Drop a poisoned/timed-out session without touching a replacement."""
+        record.invalidated = True
+        if self.sessions.get(session_id) is record:
+            del self.sessions[session_id]
 
     def _evict_to_limit(self) -> None:
         overflow = len(self.sessions) - self.max_sessions
