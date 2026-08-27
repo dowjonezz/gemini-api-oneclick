@@ -1,4 +1,5 @@
 import asyncio
+import json
 import sys
 import time
 import unittest
@@ -38,6 +39,38 @@ class UsageParsingTests(unittest.TestCase):
     def test_usage_percentage_is_clamped_for_bad_server_values(self):
         parsed = usage.parse_usage_body([1, [[0, 1.37, 1, [[1_788_000_000]]]], False])
         self.assertEqual(parsed["current_5h"]["usage_percentage"], 100)
+
+    def test_request_uses_usage_source_path_and_raw_rpc_id(self):
+        class FakeResponse:
+            status_code = 200
+            text = ")]}'\n"
+
+        class FakeSession:
+            def __init__(self):
+                self.calls = []
+
+            async def post(self, url, **kwargs):
+                self.calls.append((url, kwargs))
+                return FakeResponse()
+
+        client = SimpleNamespace(
+            client=FakeSession(),
+            account_index=0,
+            _reqid=12345,
+            build_label="build",
+            session_id="sid",
+            access_token="token",
+        )
+
+        asyncio.run(usage._request_usage_body(client))
+        self.assertEqual(len(client.client.calls), 1)
+        _, kwargs = client.client.calls[0]
+        self.assertEqual(kwargs["params"]["rpcids"], usage.USAGE_RPC_ID)
+        self.assertEqual(kwargs["params"]["source-path"], "/usage")
+        payload = json.loads(kwargs["data"]["f.req"])
+        self.assertEqual(payload[0][0][0], usage.USAGE_RPC_ID)
+        self.assertEqual(payload[0][0][1], "[]")
+        self.assertEqual(client._reqid, 112345)
 
     def test_cache_prevents_repeated_google_rpc_within_ttl(self):
         client = object()
