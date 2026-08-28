@@ -20,6 +20,30 @@ _UPSTREAM_BATCH_MODEL_HEADER = [
     1, None, None, None, None, None, None, None,
     [4, 5, 6, 8], None, None, None, None, None, None, 1, 1,
 ]
+_BROWSER_USAGE_HEADERS = {
+    "Accept": "*/*",
+    "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+    "Sec-CH-UA": '"Chromium";v="152", "Not?A_Brand";v="24", "Google Chrome";v="152"',
+    "Sec-CH-UA-Arch": '"x86"',
+    "Sec-CH-UA-Bitness": '"64"',
+    "Sec-CH-UA-Form-Factors": '"Desktop"',
+    "Sec-CH-UA-Full-Version": '"152.0.7977.64"',
+    "Sec-CH-UA-Full-Version-List": '"Chromium";v="152.0.7977.64", "Not?A_Brand";v="24.0.0.0", "Google Chrome";v="152.0.7977.64"',
+    "Sec-CH-UA-Mobile": "?0",
+    "Sec-CH-UA-Model": '""',
+    "Sec-CH-UA-Platform": '"Windows"',
+    "Sec-CH-UA-Platform-Version": '"19.0.0"',
+    "Sec-CH-UA-WoW64": "?0",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+    "X-Browser-Channel": "stable",
+    "X-Browser-Copyright": "Copyright 2026 Google LLC. All Rights Reserved.",
+    "X-Browser-Validation": "DD7V8Qhc96Al9nfPAmKmyHrwyTQ=",
+    "X-Browser-Year": "2026",
+    "X-Client-Data": "CKmdygEIlqHLAQiFoM0BCIjTlDAI7d+UMBin3pQw",
+}
 _cache: dict[int, tuple[float, dict[str, Any]]] = {}
 _locks: dict[int, asyncio.Lock] = {}
 _usage_session_ids: dict[int, str] = {}
@@ -96,15 +120,18 @@ def _batch_headers_for_usage(client: Any) -> dict[str, str]:
     if not batch_session_id:
         batch_session_id = _usage_session_ids.setdefault(key, str(uuid.uuid4()).upper())
 
-    # Match the live Gemini /usage request header shape. The two feature flags
-    # immediately before the per-session UUID are required by the current UI.
     model_header = list(_UPSTREAM_BATCH_MODEL_HEADER)
     model_header.append(batch_session_id)
     batch_headers = {
         MODEL_HEADER_KEY: json.dumps(model_header, separators=(",", ":")),
         "x-goog-ext-73010989-jspb": "[0]",
     }
-    return {**Headers.GEMINI.value, **batch_headers, **Headers.SAME_DOMAIN.value}
+    return {
+        **Headers.GEMINI.value,
+        **_BROWSER_USAGE_HEADERS,
+        **batch_headers,
+        **Headers.SAME_DOMAIN.value,
+    }
 
 
 async def _request_usage_response(client: Any):
@@ -117,7 +144,7 @@ async def _request_usage_response(client: Any):
     params: dict[str, Any] = {
         "rpcids": USAGE_RPC_ID,
         "source-path": "/usage",
-        "hl": getattr(client, "language", None) or "en",
+        "hl": getattr(client, "language", None) or "ru",
         "_reqid": reqid,
         "rt": "c",
     }
@@ -134,6 +161,7 @@ async def _request_usage_response(client: Any):
         data={
             "f.req": json.dumps([[rpc_payload]], separators=(",", ":")),
             "at": getattr(client, "access_token", None) or "",
+            "": "",
         },
     )
 
@@ -146,7 +174,6 @@ async def _request_usage_body(client: Any) -> Any:
 
 
 async def debug_usage_rpc(client: Any) -> dict[str, Any]:
-    """Return a bounded, credential-free summary of the live usage RPC response."""
     response = await _request_usage_response(client)
     text = response.text or ""
     try:
@@ -156,7 +183,6 @@ async def debug_usage_rpc(client: Any) -> dict[str, Any]:
         parse_error = f"{type(exc).__name__}: {exc}"
     else:
         parse_error = ""
-
     summary = []
     for part in parts[:20]:
         summary.append({
@@ -166,7 +192,6 @@ async def debug_usage_rpc(client: Any) -> dict[str, Any]:
             "field2_preview": str(get_nested_value(part, [2]))[:1200],
             "part_preview": str(part)[:1600],
         })
-
     return {
         "status_code": response.status_code,
         "response_length": len(text),
