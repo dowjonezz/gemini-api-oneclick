@@ -4,6 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = ROOT / "web" / "index.html"
+GATEWAY = ROOT / "gateway.py"
 
 
 class DashboardStaticTests(unittest.TestCase):
@@ -26,6 +27,13 @@ class DashboardStaticTests(unittest.TestCase):
         text = INDEX.read_text(encoding="utf-8").lower()
         self.assertNotIn("fonts.googleapis.com", text)
         self.assertNotIn("fonts.gstatic.com", text)
+
+    def test_legacy_view_has_final_cjk_rendering_guard(self):
+        text = GATEWAY.read_text(encoding="utf-8")
+        self.assertIn("_LEGACY_CJK_GUARD", text)
+        self.assertIn("new MutationObserver", text)
+        self.assertIn("По умолчанию", text)
+        self.assertIn("return _HTMLResponse(html)", text)
 
 
 if __name__ == "__main__":
