@@ -88,7 +88,9 @@ def _extract_usage_body(response_text: str) -> Any:
 
 def _batch_headers_for_usage(client: Any) -> dict[str, str]:
     key = id(client)
-    batch_session_id = _usage_session_ids.setdefault(key, str(uuid.uuid4()).upper())
+    batch_session_id = getattr(client, "_sessionid", None)
+    if not batch_session_id:
+        batch_session_id = _usage_session_ids.setdefault(key, str(uuid.uuid4()).upper())
     batch_headers = dict(Headers.BATCH_EXEC.value)
     raw_model_header = batch_headers.get(MODEL_HEADER_KEY)
     if raw_model_header:
@@ -108,6 +110,7 @@ async def _request_usage_response(client: Any):
     rpc_payload = [USAGE_RPC_ID, "[]", None, "generic"]
     params: dict[str, Any] = {
         "rpcids": USAGE_RPC_ID,
+        "hl": getattr(client, "language", None) or "en",
         "_reqid": reqid,
         "rt": "c",
         "source-path": "/usage",
@@ -123,7 +126,7 @@ async def _request_usage_response(client: Any):
         params=params,
         headers=_batch_headers_for_usage(client),
         data={
-            "at": getattr(client, "access_token", None),
+            "at": getattr(client, "access_token", None) or "",
             "f.req": json.dumps([[rpc_payload]], separators=(",", ":")),
         },
     )
