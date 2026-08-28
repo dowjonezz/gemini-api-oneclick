@@ -72,3 +72,8 @@ jobs:
 
       - name: Build worker image
         run: docker build -t gemini-api-oneclick:ci .
+
+      - name: Smoke import packaged gateway
+        run: |
+          docker run --rm --entrypoint /bin/sh gemini-api-oneclick:ci -c \
+            'uv run python -c "import gateway; assert any(r.path == \"/api/usage\" for r in gateway.app.routes); print(\"packaged gateway ok\")"'
