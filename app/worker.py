@@ -37,6 +37,47 @@ def _account_status_payload(client):
     }
 
 
+def _safe_session_headers(client):
+    """Return only non-credential headers from the live Gemini HTTP session."""
+    session = getattr(client, "client", None)
+    headers = getattr(session, "headers", None)
+    if not headers:
+        return {}
+    wanted = {
+        "accept",
+        "accept-language",
+        "content-type",
+        "origin",
+        "priority",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-arch",
+        "sec-ch-ua-bitness",
+        "sec-ch-ua-full-version",
+        "sec-ch-ua-full-version-list",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-ch-ua-platform-version",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent",
+        "x-browser-channel",
+        "x-browser-year",
+        "x-client-data",
+    }
+    result = {}
+    try:
+        items = headers.items()
+    except Exception:
+        return result
+    for key, value in items:
+        name = str(key).lower()
+        if name in wanted:
+            result[name] = str(value)[:1200]
+    return result
+
+
 async def _slot_usage_payload(num: int, *, force: bool = False):
     slot = _legacy._get_slot(num)
     if slot.client is None:
@@ -86,6 +127,15 @@ async def slot_usage_debug(num: int):
         "num": num,
         "auth_status": slot.state.get("auth_status", "unknown"),
         "account_status": _account_status_payload(client),
+        "session_headers": _safe_session_headers(client),
+        "client_state": {
+            "build_label": str(getattr(client, "build_label", "") or ""),
+            "language": str(getattr(client, "language", "") or ""),
+            "has_session_id": bool(getattr(client, "session_id", None)),
+            "session_id_length": len(str(getattr(client, "session_id", "") or "")),
+            "has_access_token": bool(getattr(client, "access_token", None)),
+            "access_token_length": len(str(getattr(client, "access_token", "") or "")),
+        },
         "rpc": await _debug_usage_rpc(client),
     }
 
