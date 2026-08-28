@@ -18,7 +18,7 @@ _TIER_LABELS = {1: "FREE", 2: "PRO", 3: "ULTRA", 4: "PLUS", 6: "ULTRA"}
 _METRIC_WINDOWS = {1: ("current_5h", "5h"), 2: ("weekly", "weekly")}
 _UPSTREAM_BATCH_MODEL_HEADER = [
     1, None, None, None, None, None, None, None,
-    [4, 5, 6, 8], None, None, None, None, None, None, 1, 1,
+    [4, 5, 6, 8], None, None, None, None, None, 1, 1,
 ]
 _BROWSER_USAGE_HEADERS = {
     "Accept": "*/*",
