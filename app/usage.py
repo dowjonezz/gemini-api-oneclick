@@ -1,12 +1,4 @@
-"""Gemini account usage/limit diagnostics for the OneClick worker.
-
-This module intentionally keeps the usage-limit backport isolated from the
-vendored ``gemini_webapi`` fork. Google exposes the same compute-usage data
-shown in Gemini's "Usage & limits" panel through the GetUsageInfo RPC
-(``jSf9Qc``). We call that RPC with the already-authenticated GeminiClient and
-cache the result briefly so opening the dashboard does not create unnecessary
-traffic.
-"""
+"""Gemini account usage/limit diagnostics for the OneClick worker."""
 from __future__ import annotations
 
 import asyncio
@@ -22,18 +14,8 @@ from gemini_webapi.utils import extract_json_from_response, get_nested_value
 USAGE_RPC_ID = "jSf9Qc"
 DEFAULT_CACHE_TTL = 60.0
 
-_TIER_LABELS = {
-    1: "FREE",
-    2: "PRO",
-    3: "ULTRA",
-    4: "PLUS",
-    6: "ULTRA",
-}
-_METRIC_WINDOWS = {
-    1: ("current_5h", "5h"),
-    2: ("weekly", "weekly"),
-}
-
+_TIER_LABELS = {1: "FREE", 2: "PRO", 3: "ULTRA", 4: "PLUS", 6: "ULTRA"}
+_METRIC_WINDOWS = {1: ("current_5h", "5h"), 2: ("weekly", "weekly")}
 _cache: dict[int, tuple[float, dict[str, Any]]] = {}
 _locks: dict[int, asyncio.Lock] = {}
 _usage_session_ids: dict[int, str] = {}
@@ -49,14 +31,11 @@ def _utc_iso(timestamp: Any) -> str | None:
 
 
 def parse_usage_body(part_body: Any) -> dict[str, Any]:
-    """Normalize one GetUsageInfo response body into a stable UI contract."""
     if not isinstance(part_body, list):
         return {}
-
     tier_id = get_nested_value(part_body, [0])
     usage_items = get_nested_value(part_body, [1], [])
     use_overage_ai_credits = get_nested_value(part_body, [2])
-
     result: dict[str, Any] = {
         "available": True,
         "tier": {"id": tier_id, "label": _TIER_LABELS.get(tier_id) or "UNKNOWN"},
@@ -64,25 +43,20 @@ def parse_usage_body(part_body: Any) -> dict[str, Any]:
         "current_5h": None,
         "weekly": None,
     }
-
     if not isinstance(usage_items, list):
         return result
-
     for item in usage_items:
         remaining = get_nested_value(item, [0])
         usage_level = get_nested_value(item, [1])
         metric_type = get_nested_value(item, [2])
         reset_ts = get_nested_value(item, [3, 0, 0])
-
         if metric_type == 3:
             result["ai_credits_remaining"] = remaining
             continue
-
         metric_label, window = _METRIC_WINDOWS.get(metric_type, (f"type_{metric_type}", "unknown"))
         usage_percentage = None
         if isinstance(usage_level, (int, float)):
             usage_percentage = max(0, min(100, round(usage_level * 100)))
-
         result[metric_label] = {
             "type": metric_type,
             "window": window,
@@ -91,12 +65,10 @@ def parse_usage_body(part_body: Any) -> dict[str, Any]:
             "usage_percentage": usage_percentage,
             "reset_at": _utc_iso(reset_ts),
         }
-
     return result
 
 
 def _extract_usage_body(response_text: str) -> Any:
-    """Return the first matching GetUsageInfo body from a batchexecute response."""
     try:
         parts = extract_json_from_response(response_text)
     except (ValueError, TypeError, json.JSONDecodeError):
@@ -115,12 +87,6 @@ def _extract_usage_body(response_text: str) -> Any:
 
 
 def _batch_headers_for_usage(client: Any) -> dict[str, str]:
-    """Build the batch-execute header family used by current upstream Gemini.
-
-    The vendored OneClick client predates upstream's per-client batch UUID.
-    Keep an equivalent UUID scoped to this authenticated client so usage calls
-    have the expected header shape without changing the chat/session code.
-    """
     key = id(client)
     batch_session_id = _usage_session_ids.setdefault(key, str(uuid.uuid4()).upper())
     batch_headers = dict(Headers.BATCH_EXEC.value)
@@ -132,24 +98,13 @@ def _batch_headers_for_usage(client: Any) -> dict[str, str]:
     return {**Headers.GEMINI.value, **batch_headers, **Headers.SAME_DOMAIN.value}
 
 
-async def _request_usage_body(client: Any) -> Any:
-    """Execute GetUsageInfo using the authenticated session owned by ``client``.
-
-    The current OneClick vendored client predates upstream's ``source_path``
-    argument and GetUsageInfo enum member. The request is therefore reproduced
-    here with the same batch-execute headers, source path and request-id behavior
-    while keeping the customized chat client untouched.
-    """
+async def _request_usage_response(client: Any):
     session = getattr(client, "client", None)
     if session is None:
         raise RuntimeError("Gemini client is not initialized")
-
     account_index = int(getattr(client, "account_index", 0) or 0)
     reqid = int(getattr(client, "_reqid", 0) or 0)
     client._reqid = reqid + 100000
-
-    # RPCData in this vendored client validates rpcid against its older GRPC
-    # enum, so serialize the new upstream RPC directly.
     rpc_payload = [USAGE_RPC_ID, "[]", None, "generic"]
     params: dict[str, Any] = {
         "rpcids": USAGE_RPC_ID,
@@ -163,8 +118,7 @@ async def _request_usage_body(client: Any) -> Any:
         params["bl"] = build_label
     if session_id:
         params["f.sid"] = session_id
-
-    response = await session.post(
+    return await session.post(
         Endpoint.get_batch_exec_url(account_index),
         params=params,
         headers=_batch_headers_for_usage(client),
@@ -173,85 +127,84 @@ async def _request_usage_body(client: Any) -> Any:
             "f.req": json.dumps([[rpc_payload]], separators=(",", ":")),
         },
     )
+
+
+async def _request_usage_body(client: Any) -> Any:
+    response = await _request_usage_response(client)
     if response.status_code != 200:
         raise RuntimeError(f"Gemini usage RPC returned HTTP {response.status_code}")
     return _extract_usage_body(response.text)
 
 
+async def debug_usage_rpc(client: Any) -> dict[str, Any]:
+    """Return a bounded, credential-free summary of the live usage RPC response."""
+    response = await _request_usage_response(client)
+    text = response.text or ""
+    try:
+        parts = extract_json_from_response(text)
+    except Exception as exc:
+        parts = []
+        parse_error = f"{type(exc).__name__}: {exc}"
+    else:
+        parse_error = ""
+
+    summary = []
+    for part in parts[:20]:
+        summary.append({
+            "type": type(part).__name__,
+            "rpc_id": get_nested_value(part, [1]),
+            "field2_type": type(get_nested_value(part, [2])).__name__,
+            "field2_preview": str(get_nested_value(part, [2]))[:1200],
+            "part_preview": str(part)[:1600],
+        })
+
+    return {
+        "status_code": response.status_code,
+        "response_length": len(text),
+        "parse_error": parse_error,
+        "parts_count": len(parts),
+        "parts": summary,
+        "raw_prefix": text[:4000],
+    }
+
+
 async def get_usage_info(client: Any, *, force: bool = False, cache_ttl: float = DEFAULT_CACHE_TTL) -> dict[str, Any]:
-    """Return cached or freshly fetched account usage information."""
     key = id(client)
     now = time.monotonic()
     cached = _cache.get(key)
     if not force and cached and now - cached[0] < cache_ttl:
-        result = dict(cached[1])
-        result["cached"] = True
-        return result
-
+        result = dict(cached[1]); result["cached"] = True; return result
     lock = _locks.setdefault(key, asyncio.Lock())
     async with lock:
-        now = time.monotonic()
-        cached = _cache.get(key)
+        now = time.monotonic(); cached = _cache.get(key)
         if not force and cached and now - cached[0] < cache_ttl:
-            result = dict(cached[1])
-            result["cached"] = True
-            return result
+            result = dict(cached[1]); result["cached"] = True; return result
         try:
             body = await _request_usage_body(client)
             result = {"available": False, "reason": "usage_info_not_returned"} if body is None else parse_usage_body(body)
-            result["fetched_at"] = datetime.now(tz=timezone.utc).isoformat()
-            result["cached"] = False
-            _cache[key] = (time.monotonic(), dict(result))
-            return result
+            result["fetched_at"] = datetime.now(tz=timezone.utc).isoformat(); result["cached"] = False
+            _cache[key] = (time.monotonic(), dict(result)); return result
         except Exception as exc:
             if cached:
-                result = dict(cached[1])
-                result.update({"cached": True, "stale": True, "refresh_error": str(exc)[:240]})
-                return result
-            return {
-                "available": False,
-                "cached": False,
-                "reason": "usage_fetch_failed",
-                "error": str(exc)[:240],
-                "fetched_at": datetime.now(tz=timezone.utc).isoformat(),
-            }
+                result = dict(cached[1]); result.update({"cached": True, "stale": True, "refresh_error": str(exc)[:240]}); return result
+            return {"available": False, "cached": False, "reason": "usage_fetch_failed", "error": str(exc)[:240], "fetched_at": datetime.now(tz=timezone.utc).isoformat()}
 
 
 def clear_usage_cache(client: Any | None = None) -> None:
-    """Clear all usage cache entries or just one client's entry."""
     if client is None:
-        _cache.clear()
-        _locks.clear()
-        _usage_session_ids.clear()
-        return
-    key = id(client)
-    _cache.pop(key, None)
-    _locks.pop(key, None)
-    _usage_session_ids.pop(key, None)
+        _cache.clear(); _locks.clear(); _usage_session_ids.clear(); return
+    key = id(client); _cache.pop(key, None); _locks.pop(key, None); _usage_session_ids.pop(key, None)
 
 
 def session_snapshot(slot: Any) -> dict[str, Any]:
-    """Return safe session diagnostics without message contents."""
     store = getattr(slot, "chat_sessions", None)
     if store is None:
         return {"active": 0, "items": []}
-    try:
-        store.cleanup()
-    except Exception:
-        pass
-    now = time.time()
-    items = []
+    try: store.cleanup()
+    except Exception: pass
+    now = time.time(); items = []
     for session_id, record in list(getattr(store, "sessions", {}).items()):
         chat = getattr(record, "chat", None)
-        cid = getattr(chat, "cid", "") or ""
-        if not cid:
-            cid = getattr(getattr(chat, "_chat", None), "cid", "") or ""
-        items.append({
-            "session_id": session_id,
-            "cid": cid,
-            "age_seconds": max(0, round(now - record.created_at, 1)),
-            "idle_seconds": max(0, round(now - record.last_used_at, 1)),
-            "locked": bool(record.lock.locked()),
-        })
-    items.sort(key=lambda item: item["idle_seconds"])
-    return {"active": len(items), "items": items}
+        cid = getattr(chat, "cid", "") or getattr(getattr(chat, "_chat", None), "cid", "") or ""
+        items.append({"session_id": session_id, "cid": cid, "age_seconds": max(0, round(now-record.created_at,1)), "idle_seconds": max(0, round(now-record.last_used_at,1)), "locked": bool(record.lock.locked())})
+    items.sort(key=lambda item: item["idle_seconds"]); return {"active": len(items), "items": items}
