@@ -18,7 +18,7 @@ _TIER_LABELS = {1: "FREE", 2: "PRO", 3: "ULTRA", 4: "PLUS", 6: "ULTRA"}
 _METRIC_WINDOWS = {1: ("current_5h", "5h"), 2: ("weekly", "weekly")}
 _UPSTREAM_BATCH_MODEL_HEADER = [
     1, None, None, None, None, None, None, None,
-    [4, 5, 6, 8], None, None, None, None, None, None, None,
+    [4, 5, 6, 8], None, None, None, None, None, None, 1, 1,
 ]
 _cache: dict[int, tuple[float, dict[str, Any]]] = {}
 _locks: dict[int, asyncio.Lock] = {}
@@ -96,8 +96,8 @@ def _batch_headers_for_usage(client: Any) -> dict[str, str]:
     if not batch_session_id:
         batch_session_id = _usage_session_ids.setdefault(key, str(uuid.uuid4()).upper())
 
-    # The vendored client predates Gemini's current batchexecute JSPB header.
-    # Reproduce upstream's current header exactly for the GetUsageInfo RPC.
+    # Match the live Gemini /usage request header shape. The two feature flags
+    # immediately before the per-session UUID are required by the current UI.
     model_header = list(_UPSTREAM_BATCH_MODEL_HEADER)
     model_header.append(batch_session_id)
     batch_headers = {
@@ -116,10 +116,10 @@ async def _request_usage_response(client: Any):
     rpc_payload = [USAGE_RPC_ID, "[]", None, "generic"]
     params: dict[str, Any] = {
         "rpcids": USAGE_RPC_ID,
+        "source-path": "/usage",
         "hl": getattr(client, "language", None) or "en",
         "_reqid": reqid,
         "rt": "c",
-        "source-path": "/usage",
     }
     build_label = getattr(client, "build_label", None)
     session_id = getattr(client, "session_id", None)
@@ -128,12 +128,12 @@ async def _request_usage_response(client: Any):
     if session_id:
         params["f.sid"] = session_id
     return await session.post(
-        Endpoint.BATCH_EXEC,
+        Endpoint.BATCH_EXEC.value,
         params=params,
         headers=_batch_headers_for_usage(client),
         data={
-            "at": getattr(client, "access_token", None) or "",
             "f.req": json.dumps([[rpc_payload]], separators=(",", ":")),
+            "at": getattr(client, "access_token", None) or "",
         },
     )
 
