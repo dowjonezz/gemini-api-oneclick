@@ -16,6 +16,7 @@ import httpx as _httpx
 import uvicorn as _uvicorn
 from fastapi import HTTPException as _HTTPException, Request as _Request
 from fastapi.exception_handlers import http_exception_handler as _http_exception_handler
+from fastapi.responses import HTMLResponse as _HTMLResponse
 
 import gateway_legacy as _legacy
 
@@ -86,9 +87,6 @@ def localize_user_text(value):
     text = value
     for source, target in _REPLACEMENTS:
         text = text.replace(source, target)
-    # Unknown legacy fragments are removed rather than leaking ideographs into
-    # the management UI. Non-CJK diagnostics (status codes, model ids, paths)
-    # remain intact and are still useful for troubleshooting.
     text = _CJK_RE.sub("", text)
     text = _re.sub(r"\s+([,.;:!?])", r"\1", text)
     text = _re.sub(r"\s{2,}", " ", text).strip()
@@ -229,13 +227,73 @@ async def api_usage_one(num: int, force: bool = False):
     return item
 
 
+_LEGACY_CJK_GUARD = r"""
+<script>
+(() => {
+  const replacements = new Map([
+    ['默认', 'По умолчанию'],
+    ['聊天', 'чат'],
+    ['图片', 'изображения'],
+    ['错误', 'ошибки'],
+    ['容器', 'контейнер'],
+    ['分组', 'группа'],
+    ['加载', 'загрузка'],
+    ['保存', 'сохранить'],
+    ['删除', 'удалить'],
+    ['取消', 'отмена'],
+    ['确认', 'подтвердить'],
+  ]);
+  const cjk = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+/g;
+  function clean(value) {
+    if (!value) return value;
+    let out = value;
+    for (const [source, target] of replacements) out = out.replaceAll(source, target);
+    return out.replace(cjk, '').replace(/\s{2,}/g, ' ').trim();
+  }
+  function cleanNode(root) {
+    if (!root) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const node of nodes) {
+      const next = clean(node.nodeValue);
+      if (next !== node.nodeValue) node.nodeValue = next;
+    }
+    if (root.querySelectorAll) {
+      for (const el of root.querySelectorAll('[title],[placeholder],[aria-label]')) {
+        for (const attr of ['title','placeholder','aria-label']) {
+          if (el.hasAttribute(attr)) el.setAttribute(attr, clean(el.getAttribute(attr)));
+        }
+      }
+    }
+  }
+  cleanNode(document.body);
+  new MutationObserver(records => {
+    for (const record of records) {
+      if (record.type === 'characterData') cleanNode(record.target.parentElement);
+      for (const node of record.addedNodes) {
+        if (node.nodeType === Node.ELEMENT_NODE) cleanNode(node);
+        else if (node.nodeType === Node.TEXT_NODE && node.parentElement) cleanNode(node.parentElement);
+      }
+    }
+  }).observe(document.body, {childList: true, subtree: true, characterData: true});
+})();
+</script>
+"""
+
+
 @app.get("/legacy", include_in_schema=False)
 async def legacy_management_ui():
-    """Serve the preserved classic media studio in a separate tab."""
+    """Serve the classic media studio with a final Russian-only rendering guard."""
     legacy_path = ROOT_DIR / "web" / "legacy.html"
     if not legacy_path.exists():
         raise _HTTPException(status_code=404, detail="Классическая медиа-студия не установлена")
-    return FileResponse(legacy_path)
+    html = legacy_path.read_text(encoding="utf-8")
+    if "</body>" in html:
+        html = html.replace("</body>", f"{_LEGACY_CJK_GUARD}</body>", 1)
+    else:
+        html += _LEGACY_CJK_GUARD
+    return _HTMLResponse(html)
 
 
 if __name__ == "__main__":
