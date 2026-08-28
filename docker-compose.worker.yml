@@ -21,6 +21,8 @@ services:
       - ./state:/app/state
       - ./app/slot.py:/app/slot.py:ro
       - ./app/worker.py:/app/worker.py:ro
+      - ./app/worker_legacy.py:/app/worker_legacy.py:ro
+      - ./app/usage.py:/app/usage.py:ro
       - ./app/parsers:/app/parsers:ro
       - ./app/raw_capture_tracer.py:/app/raw_capture_tracer.py:ro
       - ./app/worker_events.py:/app/worker_events.py:ro
