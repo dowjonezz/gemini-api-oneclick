@@ -81,7 +81,11 @@ class UsageParsingTests(unittest.TestCase):
         self.assertEqual(headers["Origin"], Headers.GEMINI.value["Origin"])
         self.assertEqual(headers["x-goog-ext-73010989-jspb"], "[0]")
         model_header = json.loads(headers[MODEL_HEADER_KEY])
-        self.assertEqual(model_header[:9], [1, None, None, None, None, None, None, None, [4]])
+        self.assertEqual(
+            model_header[:9],
+            [1, None, None, None, None, None, None, None, [4, 5, 6, 8]],
+        )
+        self.assertEqual(model_header[-3:-1], [1, 1])
         self.assertIsInstance(model_header[-1], str)
         self.assertTrue(model_header[-1])
 
