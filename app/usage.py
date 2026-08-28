@@ -16,6 +16,10 @@ DEFAULT_CACHE_TTL = 60.0
 
 _TIER_LABELS = {1: "FREE", 2: "PRO", 3: "ULTRA", 4: "PLUS", 6: "ULTRA"}
 _METRIC_WINDOWS = {1: ("current_5h", "5h"), 2: ("weekly", "weekly")}
+_UPSTREAM_BATCH_MODEL_HEADER = [
+    1, None, None, None, None, None, None, None,
+    [4, 5, 6, 8], None, None, None, None, None, None, None,
+]
 _cache: dict[int, tuple[float, dict[str, Any]]] = {}
 _locks: dict[int, asyncio.Lock] = {}
 _usage_session_ids: dict[int, str] = {}
@@ -91,12 +95,15 @@ def _batch_headers_for_usage(client: Any) -> dict[str, str]:
     batch_session_id = getattr(client, "_sessionid", None)
     if not batch_session_id:
         batch_session_id = _usage_session_ids.setdefault(key, str(uuid.uuid4()).upper())
-    batch_headers = dict(Headers.BATCH_EXEC.value)
-    raw_model_header = batch_headers.get(MODEL_HEADER_KEY)
-    if raw_model_header:
-        model_header = json.loads(raw_model_header)
-        model_header.append(batch_session_id)
-        batch_headers[MODEL_HEADER_KEY] = json.dumps(model_header, separators=(",", ":"))
+
+    # The vendored client predates Gemini's current batchexecute JSPB header.
+    # Reproduce upstream's current header exactly for the GetUsageInfo RPC.
+    model_header = list(_UPSTREAM_BATCH_MODEL_HEADER)
+    model_header.append(batch_session_id)
+    batch_headers = {
+        MODEL_HEADER_KEY: json.dumps(model_header, separators=(",", ":")),
+        "x-goog-ext-73010989-jspb": "[0]",
+    }
     return {**Headers.GEMINI.value, **batch_headers, **Headers.SAME_DOMAIN.value}
 
 
@@ -104,7 +111,6 @@ async def _request_usage_response(client: Any):
     session = getattr(client, "client", None)
     if session is None:
         raise RuntimeError("Gemini client is not initialized")
-    account_index = int(getattr(client, "account_index", 0) or 0)
     reqid = int(getattr(client, "_reqid", 0) or 0)
     client._reqid = reqid + 100000
     rpc_payload = [USAGE_RPC_ID, "[]", None, "generic"]
@@ -122,7 +128,7 @@ async def _request_usage_response(client: Any):
     if session_id:
         params["f.sid"] = session_id
     return await session.post(
-        Endpoint.get_batch_exec_url(account_index),
+        Endpoint.BATCH_EXEC,
         params=params,
         headers=_batch_headers_for_usage(client),
         data={
